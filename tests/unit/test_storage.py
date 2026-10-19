@@ -29,6 +29,7 @@ from understand.storage import (
     restore_report,
 )
 from understand.storage.migrations import apply, current_version, expected_tables, table_names, verify
+from understand.storage.scan_store import Where
 
 
 def test_store_initialises_schema(store: ScanStore) -> None:
@@ -278,3 +279,79 @@ def test_store_rejects_newer_schema(tmp_path: Path) -> None:
     # __enter__ initializes, so the rejection surfaces on entry, not on the body.
     with pytest.raises(StorageError), ScanStore(path):
         pass
+# --------------------------------------------------------------------------- filters
+# The tool's own security rule flags ``f"SELECT ... FROM scans{clause}"`` as a
+# SQL injection site. That is the right thing to point a reviewer at, and these
+# tests are the answer: the clause can only ever be one of a fixed set of
+# reviewed fragments, and a column nobody declared cannot be expressed at all.
+
+
+def test_a_declared_column_binds_a_parameter() -> None:
+    where = Where().eq("status", "completed")
+    assert where.clause() == " WHERE status = ?"
+    assert where.params == ["completed"]
+
+
+def test_a_value_never_reaches_the_sql_text() -> None:
+    hostile = "' OR 1=1 --"
+    where = Where().eq("status", hostile).eq("file", hostile)
+    assert hostile not in where.clause()
+    assert where.params == [hostile, hostile]
+
+
+def test_an_undeclared_column_is_refused() -> None:
+    with pytest.raises(StorageError):
+        Where().eq("report_json", "x")
+    with pytest.raises(StorageError):
+        Where().eq("scan_id; DROP TABLE scans", "x")
+
+
+def test_a_set_filter_uses_one_placeholder_per_value() -> None:
+    where = Where().one_of("severity", ["high", "critical"])
+    assert where.clause() == " WHERE severity IN (?,?)"
+    assert where.params == ["high", "critical"]
+
+
+def test_an_empty_set_filter_adds_nothing() -> None:
+    where = Where().one_of("severity", [])
+    assert where.clause() == ""
+    assert where.params == []
+
+
+def test_a_set_filter_on_an_undeclared_column_is_refused() -> None:
+    with pytest.raises(StorageError):
+        Where().one_of("file", ["a.py"])
+
+
+def test_a_flag_binds_nothing() -> None:
+    where = Where().flag("not_suppressed")
+    assert where.clause() == " WHERE suppressed = 0"
+    assert where.params == []
+
+
+def test_an_unknown_flag_is_refused() -> None:
+    with pytest.raises(StorageError):
+        Where().flag("everything")
+
+
+def test_the_text_search_binds_one_pattern_per_column() -> None:
+    where = Where().text_contains("%needle%")
+    assert where.clause().count("LIKE ?") == 4
+    assert where.params == ["%needle%"] * 4
+
+
+def test_clauses_combine_in_the_order_they_were_added() -> None:
+    where = Where().eq("scan_id", "s1").flag("not_suppressed").eq("rule_id", "R1")
+    assert where.clause() == " WHERE scan_id = ? AND suppressed = 0 AND rule_id = ?"
+    assert where.params == ["s1", "R1"]
+
+
+def test_an_empty_builder_produces_no_clause() -> None:
+    assert Where().clause() == ""
+
+
+def test_a_hostile_filter_value_cannot_change_the_query(store: ScanStore) -> None:
+    """The end-to-end proof: the hostile string is a value, not a statement."""
+    page = store.query_findings("' OR 1=1 --", severity="critical")
+    assert page.items == []
+    assert page.total == 0

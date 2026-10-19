@@ -55,6 +55,90 @@ def _json(value: Any) -> str:
     return json.dumps(value, ensure_ascii=False, sort_keys=True, default=str)
 
 
+#: The only column names a caller may filter on, and the SQL fragment each one
+#: is allowed to produce.  A filter that is not in this table cannot be
+#: expressed at all, which is what makes the generated statements safe by
+#: construction rather than safe by convention: a caller's text never reaches
+#: the query, only a key it must already own.
+_FILTER_SQL: dict[str, str] = {
+    "scan_id": "scan_id = ?",
+    "status": "status = ?",
+    "repository_name": "repository_name = ?",
+    "rule_id": "rule_id = ?",
+    "file": "file = ?",
+    "language": "language = ?",
+}
+
+#: Columns a filter may list several values for.
+_SET_COLUMNS = frozenset({"severity", "category", "verification"})
+
+#: Predicates that bind no parameter, so they cannot carry user input at all.
+_FLAG_SQL: dict[str, str] = {
+    "not_suppressed": "suppressed = 0",
+}
+
+#: The free-text search, kept whole rather than assembled per column so the
+#: shape of the predicate is one reviewed constant rather than a loop's output.
+_TEXT_SEARCH = "(title LIKE ? OR payload_json LIKE ? OR rule_id LIKE ? OR file LIKE ?)"
+
+
+class Where:
+    """Accumulates a ``WHERE`` clause out of reviewed fragments.
+
+    Every fragment this builder can emit is a constant declared above. Values
+    never enter the SQL text; they are bound as parameters in order. This is
+    the only way the store builds a filtered query, so there is no code path
+    where a filter name or a value is interpolated.
+    """
+
+    def __init__(self) -> None:
+        self._parts: list[str] = []
+        self._params: list[Any] = []
+
+    def eq(self, column: str, value: object) -> Where:
+        """Bind one value against one whitelisted column."""
+        fragment = _FILTER_SQL.get(column)
+        if fragment is None:
+            raise StorageError(f"{column!r} is not a filterable column")
+        self._parts.append(fragment)
+        self._params.append(value)
+        return self
+
+    def one_of(self, column: str, values: Sequence[object]) -> Where:
+        """Bind a set of values against one whitelisted column."""
+        if column not in _SET_COLUMNS:
+            raise StorageError(f"{column!r} is not a filterable column")
+        chosen = list(values)
+        if not chosen:
+            return self
+        placeholders = ",".join("?" * len(chosen))
+        self._parts.append(f"{column} IN ({placeholders})")
+        self._params.extend(chosen)
+        return self
+
+    def flag(self, name: str) -> Where:
+        """Apply a predicate that takes no value."""
+        fragment = _FLAG_SQL.get(name)
+        if fragment is None:
+            raise StorageError(f"{name!r} is not a known predicate")
+        self._parts.append(fragment)
+        return self
+
+    def text_contains(self, needle: str) -> Where:
+        """Apply the free-text search, binding the same pattern four times."""
+        self._parts.append(_TEXT_SEARCH)
+        self._params.extend([needle] * 4)
+        return self
+
+    def clause(self) -> str:
+        """The ``WHERE`` clause, or an empty string when nothing was filtered."""
+        return " WHERE " + " AND ".join(self._parts) if self._parts else ""
+
+    @property
+    def params(self) -> list[Any]:
+        return list(self._params)
+
+
 class ScanStore:
     """Persistent store for scan history and cached results."""
 
@@ -319,15 +403,13 @@ class ScanStore:
     ) -> Page:
         limit = max(1, min(int(limit), 500))
         offset = max(0, int(offset))
-        where: list[str] = []
-        params: list[Any] = []
+        where = Where()
         if repository:
-            where.append("repository_name = ?")
-            params.append(repository)
+            where.eq("repository_name", repository)
         if status:
-            where.append("status = ?")
-            params.append(status)
-        clause = (" WHERE " + " AND ".join(where)) if where else ""
+            where.eq("status", status)
+        clause = where.clause()
+        params = where.params
         total = int(self._execute(f"SELECT COUNT(*) AS c FROM scans{clause}", params).fetchone()["c"])
         rows = self._execute(
             f"""
@@ -409,38 +491,29 @@ class ScanStore:
         """Filtered, paginated findings for one scan."""
         limit = max(1, min(int(limit), 1000))
         offset = max(0, int(offset))
-        where = ["scan_id = ?"]
-        params: list[Any] = [scan_id]
+        where = Where().eq("scan_id", scan_id)
         if not include_suppressed:
-            where.append("suppressed = 0")
+            where.flag("not_suppressed")
 
         def _in(column: str, value: str | Sequence[str] | None) -> None:
             if value is None:
                 return
             values = [value] if isinstance(value, str) else list(value)
-            values = [str(v).strip().lower() for v in values if str(v).strip()]
-            if not values:
-                return
-            where.append(f"{column} IN ({','.join('?' * len(values))})")
-            params.extend(values)
+            where.one_of(column, [str(v).strip().lower() for v in values if str(v).strip()])
 
         _in("severity", severity)
         _in("category", category)
         _in("verification", verification_status)
         if rule_id:
-            where.append("rule_id = ?")
-            params.append(rule_id)
+            where.eq("rule_id", rule_id)
         if file:
-            where.append("file = ?")
-            params.append(file)
+            where.eq("file", file)
         if language:
-            where.append("language = ?")
-            params.append(language.lower())
+            where.eq("language", language.lower())
         if query:
-            where.append("(title LIKE ? OR payload_json LIKE ? OR rule_id LIKE ? OR file LIKE ?)")
-            like = f"%{query}%"
-            params.extend([like, like, like, like])
-        clause = " WHERE " + " AND ".join(where)
+            where.text_contains(f"%{query}%")
+        clause = where.clause()
+        params = where.params
         total = int(self._execute(f"SELECT COUNT(*) AS c FROM findings{clause}", params).fetchone()["c"])
         rows = self._execute(
             f"""

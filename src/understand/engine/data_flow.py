@@ -483,7 +483,20 @@ class DataFlowAnalyzer:
                 facts = self.facts.get(sym.file, {}).get(lineno)
                 if facts is None or not facts.sinks:
                     continue
-                hit = [var for var in tainted if re.search(rf"\b{re.escape(var)}\b", text, re.IGNORECASE)]
+                # A tainted name sitting on the LEFT of an assignment did not
+                # travel into the sink -- it is being produced by it. In
+                # ``row = conn.execute("SELECT MAX(version) FROM schema_info")``
+                # the word ``row`` is present and the call is a SQL sink, so
+                # the previous row was reported as reaching SQL execution. It
+                # does not: the value passed to the call is the literal, and
+                # the old row is being overwritten. Stripping the assignment
+                # target first is what tells the two apart.
+                haystack = re.sub(r"^\s*[\w.\[\]]+\s*(?::=|=)\s*", "", text)
+                hit = [
+                    var
+                    for var in tainted
+                    if re.search(rf"\b{re.escape(var)}\b", haystack, re.IGNORECASE)
+                ]
                 if not hit:
                     continue
                 for _col, kind, doc in facts.sinks:
@@ -500,14 +513,26 @@ class DataFlowAnalyzer:
                     # SQL-injection flow.
                     if not chain:
                         continue
-                    # A source and a sink on the SAME line are one expression
-                    # matching two patterns, not a path: a value cannot flow
-                    # out of a line and back into it. ``conn.execute("SELECT
-                    # name FROM sqlite_master")`` holds both the db-read source
-                    # (the word SELECT) and the sql-exec sink (the method
-                    # call), so it was reported as a database read reaching SQL
-                    # execution with zero real propagation.
-                    if src_line == lineno and src_kind not in _NO_MATCHED_SOURCE_LINE:
+                    # A sink line that already carries a SOURCE pattern, where
+                    # the source could not be tied to any tainted name, is one
+                    # expression rather than a path. ``conn.execute("SELECT
+                    # name FROM sqlite_master")`` holds the db-read source (the
+                    # word SELECT) and the sql-exec sink (the method call) on
+                    # the same line, and no assignment ever carried a value
+                    # between them, so there is nothing to propagate. It was
+                    # reported as "a database read reaches SQL execution" at
+                    # critical severity with zero real flow.
+                    #
+                    # Both halves of the test are needed. The source-on-this-
+                    # line check alone would also drop a real injection written
+                    # as ``conn.execute("SELECT " + tainted)``. The
+                    # unattributed check alone does nothing, because the line
+                    # number a fallback kind carries is the function's first
+                    # line, which is not where the pattern matched. And a
+                    # parameter used as the argument on its own declaration
+                    # line is a real flow that must survive: that line has no
+                    # source pattern on it, so it is kept.
+                    if src_line == lineno:
                         continue
                     flows.append(TaintFlow(
                         source_kind=src_kind, source_description=src_doc,
