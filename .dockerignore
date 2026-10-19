@@ -1,0 +1,32 @@
+# Build artefacts
+.git/
+.github/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+__pycache__/
+*.py[cod]
+*.egg-info/
+build/
+dist/
+.venv/
+venv/
+env/
+
+# Local scan stores and user data
+*.db
+*.sqlite
+*.sqlite3
+data/
+.scans/
+*.sarif
+*.sarif.json
+
+# Tool caches (the SARIF schema cache is fetched, not committed)
+tools/.sarif-schema.json
+
+# Editors and OS noise
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
