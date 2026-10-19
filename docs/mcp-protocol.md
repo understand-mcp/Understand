@@ -52,7 +52,7 @@ python -m understand.mcp_server [stdio|streamable-http|sse]
 
 ---
 
-## 2. The two resources
+## 2. The three resources
 
 Resources are read-only documents a client can fetch without calling a tool.
 
@@ -63,7 +63,16 @@ Resources are read-only documents a client can fetch without calling a tool.
 
 ---
 
-## 3. The nine tools
+### `understand://map-schema`
+
+The exact shape `get_code_map` returns: every field of `node`, `edge`, `stats`,
+`layout` and `honesty`, plus the rules that govern them. Read it once and a
+client can render or reason about a map without guessing, and without a second
+round trip to ask what a field means.
+
+It is static text and changes only when the model does, so a client may cache it.
+
+## 3. The ten tools
 
 | Tool | Kind | Purpose |
 | --- | --- | --- |
@@ -148,6 +157,49 @@ Exceeding either raises `validation_error`, so the client learns the limit
 instead of silently receiving a truncated answer.
 
 ---
+
+### 3.5 `get_code_map` -- the tenth tool
+
+`scan_repository` answers questions about code. `get_code_map` answers them
+about a shape: which module calls what, what inherits from what, how untrusted
+input reaches a sink, where findings landed.
+
+| Argument | Type | Default | Notes |
+| --- | --- | --- | --- |
+| `scan_id` | string | required | Must already be stored. |
+| `view` | enum of ten | `module` | Which question the map answers. |
+| `root` | string | `""` | Symbol id, file, directory or `file::symbol`. Empty means the whole repository. |
+| `depth` | int 0-6 | 3 | Hops from the root. |
+| `direction` | `out` / `in` / `both` | `both` | Which way to walk. |
+| `kinds` | list of relation kinds | view's own set | At most 20. |
+| `include_findings` | bool | true | Attach findings and source text to every node. |
+| `max_nodes` | int 10-20000 | 2000 | Node budget. |
+| `max_edges` | int 10-60000 | 8000 | Edge budget. |
+| `html` | bool | false | Also return the single-file HTML. |
+
+The result is `{"map": ..., "view": ..., "question": ..., "provenance": ...}`.
+`map` is the renderable model: `nodes`, `edges`, `stats`, `layout`, `legend` and
+`honesty`. `honesty.caveats` is not decoration -- it is the list of what the
+analysis did not do, and it travels with every response.
+
+**`html` is opt-in on purpose.** A client that wants to reason about this map
+needs the nodes and edges as data. Forty megabytes of markup helps nobody and
+would blow the context window of every model it was handed to. Ask for it only
+when the intent is to write a file.
+
+```json
+{
+  "scan_id": "scan-20261019-9da096c3",
+  "view": "data_flow",
+  "root": "tests/config/parquetReporter.ts::ParquetReporter.onEnd",
+  "depth": 3,
+  "html": false
+}
+```
+
+When a client has a finding in hand, `understand map explain <finding_id>`
+prints the same causal chain as prose and ends with the exact `map show` command
+that draws it.
 
 ## 4. The response envelope
 

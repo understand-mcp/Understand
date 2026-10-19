@@ -9,7 +9,7 @@ A CLI and an MCP server over one engine.
 [![Python](https://img.shields.io/badge/python-3.10%2B-3776ab)](https://www.python.org/)
 [![MCP](https://img.shields.io/badge/MCP-2.0-blue)](https://modelcontextprotocol.io)
 [![License](https://img.shields.io/badge/license-MIT-8a5cf5)](LICENSE)
-[![Tests](https://img.shields.io/badge/tests-453%20passed-brightgreen)](tests)
+[![Tests](https://img.shields.io/badge/tests-515%20passed-brightgreen)](tests)
 [![SARIF](https://img.shields.io/badge/output-SARIF%202.1.0-orange)](docs/cli.md)
 
 [Report a bug](https://github.com/understand-mcp/understand/issues) ·
@@ -128,13 +128,19 @@ honest shape of it: tightening one pattern revealed more underneath it, and each
 was only visible by re-running against the real repository and reading the
 source.
 
-| | Before | After |
-| --- | --- | --- |
-| Findings | 2,823 | 1,524 |
-| Critical | 68 | 2 |
-| High | 316 | 216 |
-| Medium | 180 | 307 |
-| Low | 1,892 | 632 |
+| | First run | After the pattern fixes | Also today |
+| --- | --- | --- | --- |
+| Findings | 2,823 | 1,524 | **930** |
+| Critical | 68 | 2 | **2** |
+| High | 316 | 216 | **211** |
+| Medium | 180 | 307 | **277** |
+| Low | 1,892 | 632 | **46** |
+
+The last column removes one more class of noise: the repository vendors a
+browserified copy of React 15 under `tests/assets/`, and that build was
+producing hundreds of findings about code this repository does not contain.
+Excluding shipped bundles took 5,854 symbols and 35,160 edges out of the
+analysis and cut findings by 42% while critical stayed at 2.
 
 Medium rising while high falls is the correct direction: a flow whose origin
 could not be tied to untrusted input now moves down a level instead of being
@@ -291,7 +297,7 @@ On microsoft/playwright that produces a single 2.7 MB file: 1,321 file nodes and
 edges, laid out in 9 dependency layers with the caller above what it calls. It zooms,
 pans, filters and has a minimap. At fit-to-view the whole repository is visible; zoom in
 and file names appear. The status bar states how many of the 8,000 edges are drawn at the
-current zoom, which edges the budget removed, and how many of the scan's 52,793 unresolved
+current zoom, which edges the budget removed, and how many of the scan's 42,026 unresolved
 call targets the map did not draw, because a map that looks complete but is not is worse
 than no map.
 
@@ -736,7 +742,7 @@ python tools/validate_sarif.py
 ```
 
 ```text
-484 passed
+515 passed
 ```
 
 Linux, macOS and Windows, Python 3.10 to 3.13. Adding a check or a language:

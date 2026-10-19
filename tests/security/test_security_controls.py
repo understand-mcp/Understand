@@ -300,6 +300,40 @@ def test_workspace_cleans_up() -> None:
 # --------------------------------------------------------------------------- policy
 
 
+def test_vendored_bundles_inside_the_tree_are_excluded() -> None:
+    """A checked-in library under a fixture is still a library.
+
+    The exclusion list already covered ``vendor/`` and ``node_modules/``, but
+    a repository that vendors a browserified copy of a library into
+    ``tests/assets/`` has neither directory. Analysing that copy reports the
+    library's internals as this repository's code: on microsoft/playwright the
+    Browserify module-loader parameter ``_dereq_`` alone accounted for 597
+    unresolved call targets, none of which is a call anyone in that
+    repository makes.
+    """
+
+    from understand.config import AnalysisPolicy
+    from understand.security.repository_policy import RepositoryPolicy
+
+    policy = RepositoryPolicy(AnalysisPolicy())
+    for path in (
+        "tests/assets/reading-list/react-dom_15.7.0.js",
+        "assets/bundle.min.js",
+        "vendor/bundle.js",
+        "third_party/zod/index.js",
+        "testdata/golden.json",
+    ):
+        assert policy.decide(path).excluded, path
+
+    # The exclusions must not reach ordinary source or ordinary tests.
+    for path in (
+        "packages/playwright/src/reporters/html.ts",
+        "tests/library/client-certificates.spec.ts",
+        "src/assets/icons.ts",
+    ):
+        assert not policy.decide(path).excluded, path
+
+
 def test_repository_policy_excludes_vendor_generated_and_hidden(
     tmp_path: Path, risky_repo: str
 ) -> None:

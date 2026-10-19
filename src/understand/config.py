@@ -75,6 +75,18 @@ class AnalysisPolicy:
             "dist", "build", "out", "target", ".next", ".nuxt", ".gradle",
             ".idea", ".vscode", ".terraform", "site-packages", ".cache",
             "coverage", "htmlcov", "bower_components", "Pods", ".dart_tool",
+            # Vendored bundles that ship *inside* a source tree. A checked-in
+            # copy of a library under a test fixture is still a copy of the
+            # library: analysing it reports the library's internals as this
+            # repository's code. On microsoft/playwright, tests/assets holds
+            # Browserify builds of React 15, whose module-loader parameter
+            # ``_dereq_`` appeared 597 times in the unresolved-call count and
+            # is not a call anyone in that repository makes. The directory
+            # name ``assets`` is handled separately in RepositoryPolicy: it is
+            # only ever a source directory when it sits under ``src``, so a
+            # blanket entry here would throw away real code.
+            "vendored", "third_party", "thirdparty", "fixtures",
+            "testdata", "test-data", "__snapshots__",
         }
     )
     exclude_globs: tuple[str, ...] = (

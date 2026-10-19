@@ -7,7 +7,12 @@ import pytest
 from understand.engine.call_graph import build_call_graph
 from understand.engine.data_flow import analyze_data_flow
 from understand.engine.graph_snapshot import empty_snapshot, snapshot_graph
-from understand.engine.parsing import make_symbol_id, strip_comments_and_strings
+from understand.engine.parsing import (
+    extract_calls,
+    is_not_a_call,
+    make_symbol_id,
+    strip_comments_and_strings,
+)
 from understand.engine.symbol_index import SymbolIndex, parse_module
 from understand.models import SupportLevel
 
@@ -206,3 +211,40 @@ def test_language_parsers_do_not_crash(language: str, source: str) -> None:
     module = parse_module(f"sample.{language}", source, language)
     assert module.language == language
     assert isinstance(module.symbols, list)
+
+
+def test_language_keywords_are_not_calls_but_ordinary_callables_are() -> None:
+    """Keywords are filtered; names that merely look like keywords are not.
+
+    ``async(async () => {})``, ``super(...)`` and ``void(...)`` are syntax,
+    not calls, and recording them as calls put 1,341 entries into the
+    unresolved count on a real repository. The opposite mistake is worse and
+    was made once: a first version of the keyword list included ``go``,
+    ``map``, ``filter``, ``range`` and ``require``, which silently deleted
+    real calls, so a test that only proves the keywords are gone would have
+    passed while the extractor broke.
+    """
+    lines = [
+        "class T extends B {",
+        "  step() { return super.step(1); }",
+        "  run() { return super.go(2); }",
+        "}",
+        "async (async () => { await work(); })();",
+        "void (0);",
+        "const xs = items.map(fn).filter(Boolean).join();",
+        "for (const k of range(n)) { }",
+        "const m = require('mod');",
+    ]
+    calls = {c.callee_name for c in extract_calls(lines, "a.ts", lambda _n: "T")}
+    for keyword in ("async", "void", "super"):
+        assert keyword not in calls, f"{keyword} was recorded as a call"
+    assert "super.step" in calls, "a receiver call through super() was lost"
+    assert "super.go" in calls, "a receiver call through super() was lost"
+    # Asserting the qualified names is the stronger check: a receiver-less
+    # assertion would still pass if the extractor had thrown the line away.
+    # (``items.filter`` records as ``None.filter`` -- a chained call loses its
+    # receiver, which is a separate limitation and not what this test is for.)
+    assert "items.map" in calls
+    assert "require" in calls and "range" in calls and "work" in calls
+    assert is_not_a_call("async") and is_not_a_call("super") and is_not_a_call("void")
+    assert not is_not_a_call("go") and not is_not_a_call("map") and not is_not_a_call("filter")

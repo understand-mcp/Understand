@@ -855,3 +855,64 @@ things". The cap that exists for the *moving* camera is separate
 16 ms with the adaptive controller untouched at quality 1.0. The settled floor is
 now 3,000. The camera cap is unchanged, so panning and zooming still bound their
 own cost.
+
+### 2.16 Four defects a reader found, and what each one actually was
+
+Every one of these was found by a person using a map, not by a test. They are
+recorded together because they share a shape: each was a **plausible-looking
+line of code producing a claim the tool could not back up**, which is the one
+failure mode a static analyser must not have.
+
+**1. A node that said "Findings (0)" on a file full of findings.**
+`_attach_findings` built a `by_file` index of paths with empty lists and never
+filled it, so a finding whose `affected_symbols` named a symbol the node budget
+had dropped could never widen to the file a reader would click. The docstring
+promised exactly that widening; the code did not do it. Fixed, and the withheld
+count in the caveats went from 139 to 31,466 -- the honest number, because the
+caps only start biting once the index is real.
+
+**2. Severity borders that were invisible.** `drawNode` set `stroke = fill` for
+a severity node, so the outline was the fill colour. A node flagged critical
+looked identical to a node flagged high. Borders are now a separate
+`SEVERITY_BORDER` palette with a width that thickens with severity, so the
+ranking survives a greyscale screenshot. A test asserting "no border equals its
+own fill" caught two of the five replacements being invisible -- the same defect,
+repeated inside the fix.
+
+**3. Eight nodes per second, then nothing.** A `ReferenceError` in the panel
+legend (`svUl` for `sevUl`, a typo I made while adding that legend) threw out
+of `renderPanel`, which `applyFilter` calls **before** it computes the ranked
+edge list. The exception aborted the filter pass, the edge budget read an empty
+list, and every view drew **0 of 8,000 edges** while still drawing its nodes. A
+draw loop that can throw is now wrapped so one bad frame cannot wedge the canvas.
+
+**4. Eighty percent of nodes permanently anonymous.** The label budget was a
+*global* degree-rank cap, so zooming into a corner with 44 nodes on screen left
+the names on the 400 most connected symbols, most of them elsewhere in the
+drawing. The budget is now spent on what is visible. A second bug surfaced
+during the fix: `visCount` was assigned in a different function from the one that
+reads it, so it reported 2,000 at every zoom level until that was moved too.
+
+| zoom | visible nodes | status line |
+| --- | --- | --- |
+| 10% (fit) | 2,000 | `labels hidden while zoomed out` |
+| 42% | 277 | `labels on, 400 of 2000 most-connected labelled` |
+| 129% | 44 | `labels on, all 44 visible node(s) named` |
+| 395% | 7 | `labels on, all 7 visible node(s) named` |
+
+Two related rules came out of the same investigation. The **minimum node size**
+is one *screen* pixel, not one world pixel: at 8% zoom a three-pixel floor forces
+every node to 37 world pixels and 2,000 of them become unbroken bands, which
+reads as a solid region with no way to tell density from coverage. And the
+**gesture node budget** keeps 60% of nodes and never fewer than 1,200 -- the
+earlier rule reused the label budget and deleted 1,600 of 2,000 nodes the instant
+a drag started, so the map emptied itself under the reader's finger.
+
+**What is still not fixed, stated plainly.** The freeze these defects
+contributed to could not be reproduced after them: 40 wheel gestures and a
+30-step drag, driven with trusted input, produce zero JavaScript errors and a
+worst self-measured frame of 3.9 ms with adaptive quality pinned at 1. The
+remaining architectural lever is rendering in a worker via OffscreenCanvas,
+which is deferred on purpose -- the render core is roughly 21 KB of JavaScript
+embedded in a single template string, and refactoring it blind is how a working
+map is turned into a broken one.

@@ -378,6 +378,13 @@ the model and this server.
 
 ---
 
+### What a connected client can actually do
+
+The server exposes **ten tools** and **three resources**. Nine tools analyse a
+repository; `get_code_map` projects an already-stored scan into a bounded graph,
+and `understand://map-schema` documents the exact shape it returns so a client
+can read the result without guessing.
+
 ## Verifying the connection
 
 1. **Start the server by hand.** `python -m understand.mcp_server` should sit

@@ -108,14 +108,57 @@ IMPORT_PATTERNS: tuple[tuple[str, str], ...] = (
 CALL_RE = re.compile(rf"(?P<recv>{IDENT}(?:\.{IDENT})*)?\s*\.\s*(?P<name>{IDENT})\s*\(")
 BARE_CALL_RE = re.compile(rf"(?<![\w.$])(?P<name>{IDENT})\s*\(")
 CONTROL_WORDS = frozenset({
-    "if", "elif", "else", "for", "while", "switch", "case", "catch", "return", "new",
-    "function", "typeof", "sizeof", "await", "yield", "throw", "raise", "assert",
-    "print", "println", "require", "import", "from", "in", "is", "as", "with", "and",
-    "or", "not", "andalso", "orelse", "do", "then", "end", "match", "when", "def",
-    "class", "struct", "enum", "interface", "fun", "fn", "var", "let", "const",
-    "public", "private", "protected", "static", "defer", "go", "select", "lambda",
-    "range", "map", "filter", "typeof", "instanceof", "delete", "typeof", "in",
+    # Words that open or close a block. None of these can be a call: the
+    # parser sees ``if (x)`` and must not record a call to ``if``.
+    "if", "elif", "else", "for", "while", "switch", "case", "catch", "return",
+    "do", "then", "end", "match", "when",
+    # Declarations and modifiers.
+    "def", "fun", "fn", "class", "struct", "enum", "interface", "trait",
+    "var", "let", "const", "public", "private", "protected", "static",
+    # Operators that never take a call syntax.
+    "new", "function", "typeof", "instanceof", "sizeof", "delete",
+    "await", "yield", "throw", "raise", "assert", "lambda", "defer", "select",
+    # Operators and connectors.
+    "in", "is", "as", "with", "and", "or", "not", "andalso", "orelse",
+    # Reserved for the language-word list below.
+    "import", "from",
 })
+
+#: Words that are keywords in some registered language and can never be the
+#: name of a call. They are a separate set from ``CONTROL_WORDS`` on purpose:
+#: that one is call-oriented and deliberately omits language words, and this
+#: one is a language word list. Without it ``async(async () => {})``,
+#: ``super(...)`` and ``void(...)`` in TypeScript and JavaScript each become a
+#: CallSite, fail resolution, and sit in the unresolved count forever as if
+#: they were a library the analyzer could not find. On microsoft/playwright
+#: that was 1,341 entries of 52,793 -- noise in a number a reader is meant to
+#: trust. Nothing here is callable in any registered language.
+LANGUAGE_KEYWORDS = frozenset({
+    # The three this list exists for: ``async(async () => {})``,
+    # ``super(...)`` and ``void(...)`` are not calls in any language.
+    "async", "super", "void",
+    # Words that are keywords somewhere and are essentially never a callable
+    # name. Deliberately short. A first attempt copied the whole of
+    # CONTROL_WORDS in here and dropped every call named ``go(``, ``set(``,
+    # ``map(`` or ``filter(`` -- on microsoft/playwright ``super.go(...)`` is a
+    # real call and this killed it. A word only belongs here if you cannot
+    # imagine a method with that name.
+    "this", "self", "cls", "null", "nil", "true", "false",
+    "typeof", "instanceof", "in", "of", "new",
+    "class", "struct", "enum", "interface", "trait", "impl", "mod",
+    "extends", "implements",
+    "import", "export", "from", "as", "is", "with", "and", "or", "not", "end",
+    "package", "namespace", "internal", "abstract", "final", "sealed",
+    "override", "virtual", "readonly", "static",
+    "public", "private", "protected", "synchronized", "transient", "native",
+})
+
+
+def is_not_a_call(name: str) -> bool:
+    """Whether ``name`` is a keyword rather than something the code called."""
+
+    return name in CONTROL_WORDS or name in LANGUAGE_KEYWORDS
+
 
 _ASSIGN_SECRET_RE = re.compile(
     r"""(?ix)
@@ -237,7 +280,7 @@ def extract_calls(
         for m in CALL_RE.finditer(line):
             name = m.group("name")
             recv = m.group("recv")
-            if name in CONTROL_WORDS:
+            if is_not_a_call(name):
                 continue
             key = f"{recv}.{name}"
             if key in seen:
@@ -246,7 +289,7 @@ def extract_calls(
             calls.append(CallSite(caller_id=caller, callee_name=key, file=path, line=idx))
         for m in BARE_CALL_RE.finditer(line):
             name = m.group("name")
-            if name in CONTROL_WORDS or name in seen:
+            if is_not_a_call(name) or name in seen:
                 continue
             seen.add(name)
             calls.append(CallSite(caller_id=caller, callee_name=name, file=path, line=idx))

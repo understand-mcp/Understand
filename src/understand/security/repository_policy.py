@@ -85,6 +85,17 @@ class RepositoryPolicy:
             return ExclusionDecision(True, "hostile or unportable filename", name)
         if name.startswith("."):
             return ExclusionDecision(True, "hidden file excluded by policy", name)
+
+        # ``assets`` means two different things. Under ``src`` it is a source
+        # directory like any other and is analysed; anywhere else it holds
+        # shipped artefacts -- a browserified copy of a library, a bundle, a
+        # fixture's expected output. Analysing the latter reports another
+        # project's code as this repository's code, so it is excluded there and
+        # only there. A blanket entry for the name in exclude_dirs would have
+        # thrown away ``src/assets/icons.ts`` along with it, which is why this
+        # rule lives here rather than there.
+        if "assets" in parts[:-1] and "src" not in parts[:-1]:
+            return ExclusionDecision(True, "vendored asset bundle, not repository source", name)
         if not self.analysis.allow_generated and self.is_generated_path(rel):
             return ExclusionDecision(True, "generated or vendored file excluded by policy", name)
         if self.classify_name(name) == "sensitive":
