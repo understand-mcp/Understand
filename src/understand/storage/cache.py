@@ -203,10 +203,10 @@ class ScanCache:
 
 
 __all__ = [
+    "_CONTENT_HASH_LIMIT",
+    "_MAX_DIGEST_FILES",
     "CacheLookup",
     "ScanCache",
     "digest_repository",
     "digest_request",
-    "_CONTENT_HASH_LIMIT",
-    "_MAX_DIGEST_FILES",
 ]

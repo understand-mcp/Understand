@@ -39,7 +39,6 @@ import json
 import os
 import sys
 from collections.abc import Sequence
-from pathlib import Path
 from typing import Any
 
 from understand import __version__
@@ -159,7 +158,11 @@ _SCAN_VALUE_FLAGS = {
     "--output": "output",
     "-o": "output",
     "--out": "output",
-    "--config": "__config",
+    # "config", not "__config": the branch in parse_scan_tokens that
+    # assigns config_path tests for the plain name. The underscore-prefixed
+    # form never matched it, so --config and -c silently landed on the args
+    # namespace as an unread attribute and the file was ignored.
+    "--config": "config",
     "--storage": "storage",
     "--mode": "mode",
     "--fail-on": "fail_on",
@@ -232,6 +235,11 @@ def parse_scan_tokens(argv: Sequence[str]) -> tuple[ScanArgs, argparse.Namespace
     index = 0
 
     def flush_pending() -> None:
+        # config_path is rebound below, so this needs the declaration. Without
+        # it the assignment made a LOCAL of the same name inside this nested
+        # function, the outer one stayed None, and `--config` / `-c` were
+        # accepted and then ignored: the scan silently ran on defaults.
+        nonlocal config_path
         while pending:
             token = pending.pop()
             if token == "--":
@@ -245,7 +253,7 @@ def parse_scan_tokens(argv: Sequence[str]) -> tuple[ScanArgs, argparse.Namespace
                 args.report_format = pending.pop() if pending else ""
                 continue
             if name == "fail_on":
-                setattr(args, "fail_on", pending.pop() if pending else "")
+                args.fail_on = pending.pop() if pending else ""
                 continue
             if name == "storage":
                 args.storage = pending.pop() if pending else ""
@@ -1065,7 +1073,6 @@ def map_views_document() -> dict[str, Any]:
         FINDING_VIEWS,
         NODE_SHAPES,
         SEVERITY_ORDER,
-        SYMBOL_VIEWS,
         VIEW_KINDS,
         VIEW_QUESTIONS,
         VIEWS,
@@ -1304,7 +1311,7 @@ def _cmd_map_explain(
                     continue
                 try:
                     probe = ReportService(service.store).get(candidate)
-                except Exception:  # noqa: BLE001 - a scan that will not load is not a match
+                except Exception:
                     continue
                 if any(
                     f.finding_id == finding_id or f.rule_id == finding_id
@@ -1463,7 +1470,7 @@ def _best_effort_open(path: Any) -> None:
             os.startfile(str(path))  # type: ignore[attr-defined]
         else:
             subprocess.Popen(["xdg-open", str(path)])
-    except Exception:  # noqa: BLE001 - convenience only
+    except Exception:
         logger.debug("could not open %s", path, exc_info=True)
 
 
@@ -1549,7 +1556,7 @@ def main(argv: Sequence[str] | None = None) -> int:
         return 130
     except BrokenPipeError:  # pragma: no cover - depends on the consumer
         return 0
-    except Exception as exc:  # noqa: BLE001 - CLI boundary
+    except Exception as exc:
         logger.debug("unhandled error", exc_info=True)
         _emit_error(
             {

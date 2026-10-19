@@ -40,6 +40,7 @@ from ..models import (
     utcnow,
 )
 from . import migrations
+from .migrations import SCHEMA_VERSION
 
 _MAX_REPORT_BYTES = 64 * 1024 * 1024
 
@@ -92,7 +93,7 @@ class ScanStore:
         self._conn = conn
         return conn
 
-    def initialize(self) -> "ScanStore":
+    def initialize(self) -> ScanStore:
         with self._lock:
             conn = self._connect()
             migrations.apply(conn)
@@ -107,7 +108,7 @@ class ScanStore:
                 finally:
                     self._conn = None
 
-    def __enter__(self) -> "ScanStore":
+    def __enter__(self) -> ScanStore:
         return self.initialize()
 
     def __exit__(self, *exc: object) -> None:
@@ -122,7 +123,7 @@ class ScanStore:
         except sqlite3.Error as exc:
             raise StorageError(f"scan store query failed: {exc}") from exc
 
-    def _transaction(self):  # noqa: ANN201 - returns a cursor context manager
+    def _transaction(self):
         conn = self._connect()
         return _Transaction(conn)
 
@@ -364,7 +365,7 @@ class ScanStore:
         with self._lock, self._transaction() as cur:
             for table in ("findings", "stages", "scan_cache", "scans"):
                 cur.execute(
-                    f"DELETE FROM {table} WHERE scan_id IN ({stale})",  # noqa: S608 - fixed table list
+                    f"DELETE FROM {table} WHERE scan_id IN ({stale})",
                     (keep,),
                 )
             return int(cur.rowcount)
@@ -565,9 +566,6 @@ def restore_report(payload: dict[str, Any]) -> ScanReport:
 
 
 __all__ = [
-    "ScanStore",
-    "report_to_dict",
-    "restore_report",
     "SCHEMA_VERSION",
     "CoverageRecord",
     "DependencyRecord",
@@ -576,8 +574,11 @@ __all__ = [
     "ResourceLimits",
     "ScanReport",
     "ScanRequest",
+    "ScanStore",
     "ScanWarning",
     "Severity",
     "StageRecord",
     "migrations",
+    "report_to_dict",
+    "restore_report",
 ]

@@ -8,7 +8,8 @@ re-scan, diff.
 
 from __future__ import annotations
 
-from typing import Any, Sequence
+from collections.abc import Sequence
+from typing import Any
 
 from ..errors import FindingNotFound, ScanNotFound, ValidationError
 from ..models import Confidence, Finding, Page, ScanReport, Severity, VerificationStatus
@@ -169,7 +170,7 @@ def _enum_filter(values: Sequence[str] | str | None, enum_cls: Any) -> list[str]
     if values is None:
         return None
     if isinstance(values, str):
-        values = [part for part in values.replace(";", ",").split(",")]
+        values = list(values.replace(";", ",").split(","))
     out: list[str] = []
     for raw in values:
         token = str(raw).strip().lower()
@@ -190,7 +191,7 @@ def _category_filter(values: Sequence[str] | str | None) -> list[str] | None:
     if values is None:
         return None
     if isinstance(values, str):
-        values = [part for part in values.replace(";", ",").split(",")]
+        values = list(values.replace(";", ",").split(","))
     out = [str(value).strip().lower() for value in values if str(value).strip()]
     allowed = {"security", "bugs", "architecture", "dependencies", "reliability"}
     for value in out:

@@ -42,7 +42,7 @@ class CallGraph:
         self.incoming[edge.dst].append(edge)
         return edge
 
-    def build(self, index: SymbolIndex) -> "CallGraph":
+    def build(self, index: SymbolIndex) -> CallGraph:
         for call in index.calls():
             edge = self._resolve(call, index)
             if edge is not None:

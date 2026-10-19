@@ -8,7 +8,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 
 from understand.config import RuntimeConfig
-from understand.errors import AcquisitionError, InvalidSourceError, ResourceLimitExceeded
+from understand.errors import InvalidSourceError, ResourceLimitExceeded
 from understand.logging_config import get_logger
 from understand.models import ScanRequest, SourceKind
 from understand.security.path_validation import assert_local_source
@@ -47,7 +47,7 @@ class AcquiredRepository:
 
 def _dir_size(path: Path, limit: int) -> int:
     total = 0
-    for root, dirs, files in _walk_bounded(path):
+    for root, _dirs, files in _walk_bounded(path):
         for f in files:
             try:
                 total += (Path(root) / f).stat().st_size

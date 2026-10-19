@@ -19,7 +19,7 @@ if TYPE_CHECKING:  # pragma: no cover
     from .call_graph import CallGraph
     from .symbol_index import SymbolIndex
 
-__all__ = ["snapshot_graph", "MAX_SNAPSHOT_NODES", "MAX_SNAPSHOT_EDGES", "empty_snapshot"]
+__all__ = ["MAX_SNAPSHOT_EDGES", "MAX_SNAPSHOT_NODES", "empty_snapshot", "snapshot_graph"]
 
 MAX_SNAPSHOT_NODES = 60_000
 MAX_SNAPSHOT_EDGES = 120_000
@@ -63,8 +63,8 @@ def empty_snapshot() -> dict[str, Any]:
 
 
 def snapshot_graph(
-    index: "SymbolIndex",
-    graph: "CallGraph",
+    index: SymbolIndex,
+    graph: CallGraph,
     *,
     max_nodes: int = MAX_SNAPSHOT_NODES,
     max_edges: int = MAX_SNAPSHOT_EDGES,

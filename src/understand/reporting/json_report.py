@@ -20,8 +20,8 @@ from ..models import ScanReport
 from ..security.redaction import redact_obj, redact_snippet
 
 __all__ = [
-    "report_to_dict",
     "render_json",
+    "report_to_dict",
     "write_json",
 ]
 

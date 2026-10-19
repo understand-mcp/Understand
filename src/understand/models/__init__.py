@@ -8,8 +8,8 @@ into the report serializers.
 from __future__ import annotations
 
 import hashlib
-from datetime import datetime, timezone
-from enum import Enum
+from datetime import UTC, datetime
+from enum import StrEnum
 from typing import Any
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
@@ -19,7 +19,7 @@ from understand import REPORT_SCHEMA_VERSION, TOOL_NAME, __version__
 
 def utcnow() -> str:
     """Return an ISO-8601 UTC timestamp (second precision, always suffixed Z)."""
-    return datetime.now(timezone.utc).replace(microsecond=0).isoformat().replace("+00:00", "Z")
+    return datetime.now(UTC).replace(microsecond=0).isoformat().replace("+00:00", "Z")
 
 
 class Base(BaseModel):
@@ -29,18 +29,18 @@ class Base(BaseModel):
 # --------------------------------------------------------------------------- enums
 
 
-class SourceKind(str, Enum):
+class SourceKind(StrEnum):
     LOCAL = "local"
     LOCAL_GIT = "local_git"
     REMOTE_GIT = "remote_git"
 
 
-class Profile(str, Enum):
+class Profile(StrEnum):
     STANDARD = "standard"
     DEEP = "deep"
 
 
-class Check(str, Enum):
+class Check(StrEnum):
     SECURITY = "security"
     BUGS = "bugs"
     ARCHITECTURE = "architecture"
@@ -48,7 +48,7 @@ class Check(str, Enum):
     RELIABILITY = "reliability"
 
     @classmethod
-    def _missing_(cls, value: object) -> "Check | None":
+    def _missing_(cls, value: object) -> Check | None:
         """Accept user-supplied spellings such as "BUGS" or " Security "."""
         if isinstance(value, str):
             text = value.strip().lower()
@@ -58,7 +58,7 @@ class Check(str, Enum):
         return None
 
 
-class Severity(str, Enum):
+class Severity(StrEnum):
     CRITICAL = "critical"
     HIGH = "high"
     MEDIUM = "medium"
@@ -70,7 +70,7 @@ class Severity(str, Enum):
         return _SEVERITY_RANK[self]
 
     @classmethod
-    def parse(cls, value: str) -> "Severity":
+    def parse(cls, value: str) -> Severity:
         try:
             return cls(str(value).strip().lower())
         except ValueError as exc:  # pragma: no cover - defensive
@@ -89,7 +89,7 @@ _SEVERITY_RANK = {
 }
 
 
-class Confidence(str, Enum):
+class Confidence(StrEnum):
     HIGH = "high"
     MEDIUM = "medium"
     LOW = "low"
@@ -99,7 +99,7 @@ class Confidence(str, Enum):
         return {"high": 2, "medium": 1, "low": 0}[self.value]
 
 
-class VerificationStatus(str, Enum):
+class VerificationStatus(StrEnum):
     """How strongly a finding was established. Never inferred from plausibility."""
 
     STATIC_EVIDENCE = "static_evidence"
@@ -110,7 +110,7 @@ class VerificationStatus(str, Enum):
     NOT_VERIFIED = "not_verified"
 
 
-class EvidenceKind(str, Enum):
+class EvidenceKind(StrEnum):
     SOURCE_RANGE = "source_range"
     CALL_TRACE = "call_trace"
     DATA_FLOW = "data_flow"
@@ -120,7 +120,7 @@ class EvidenceKind(str, Enum):
     HEURISTIC = "heuristic"
 
 
-class EdgeKind(str, Enum):
+class EdgeKind(StrEnum):
     IMPORTS = "imports"
     CALLS = "calls"
     IMPLEMENTS = "implements"
@@ -143,7 +143,7 @@ class EdgeKind(str, Enum):
     INFLUENCES = "influences"
 
 
-class RelationOrigin(str, Enum):
+class RelationOrigin(StrEnum):
     """How confident we are that an edge is real."""
 
     STATIC_DIRECT = "static_direct"
@@ -153,7 +153,7 @@ class RelationOrigin(str, Enum):
     UNRESOLVED = "unresolved"
 
 
-class StageStatus(str, Enum):
+class StageStatus(StrEnum):
     PENDING = "pending"
     RUNNING = "running"
     COMPLETED = "completed"
@@ -163,7 +163,7 @@ class StageStatus(str, Enum):
     CANCELLED = "cancelled"
 
 
-class SupportLevel(str, Enum):
+class SupportLevel(StrEnum):
     FULL = "full"
     PARTIAL = "partial"
     TEXT_ONLY = "text_only"
@@ -463,7 +463,7 @@ class ScanReport(Base):
     from_cache: bool = False
     partial: bool = False
 
-    def finalize(self) -> "ScanReport":
+    def finalize(self) -> ScanReport:
         sev: dict[str, int] = {}
         cat: dict[str, int] = {}
         for f in self.findings:
@@ -493,7 +493,7 @@ class Page(Base):
     next_offset: int | None = None
 
     @model_validator(mode="after")
-    def _derive_next_offset(self) -> "Page":
+    def _derive_next_offset(self) -> Page:
         if self.next_offset is None:
             consumed = self.offset + len(self.items)
             if consumed < self.total:

@@ -31,7 +31,8 @@ all of them is not a report anybody reads.
 from __future__ import annotations
 
 import re
-from typing import TYPE_CHECKING, Iterable
+from collections.abc import Iterable
+from typing import TYPE_CHECKING
 
 from understand.engine.control_flow import extract_control_flow
 from understand.engine.parsing import is_test_path
@@ -41,7 +42,7 @@ if TYPE_CHECKING:  # pragma: no cover
     from understand.engine.call_graph import CallGraph
     from understand.engine.symbol_index import SymbolIndex
 
-__all__ = ["build_relations", "RELATION_BUDGETS"]
+__all__ = ["RELATION_BUDGETS", "build_relations"]
 
 #: Per-kind caps.  A single pathological repository (a 30k-line generated
 #: framework file, a giant ``__init__.py``) must not be able to consume the
@@ -188,7 +189,7 @@ def _leaf(target: str) -> str:
     return text.rsplit(".", 1)[-1]
 
 
-def _members(index: "SymbolIndex") -> dict[str, list[str]]:
+def _members(index: SymbolIndex) -> dict[str, list[str]]:
     """Map ``owner name`` -> member symbol ids, for attribute resolution.
 
     ``self.x`` inside class ``C`` means ``C.x``; a module-level ``x`` means
@@ -207,7 +208,7 @@ def _members(index: "SymbolIndex") -> dict[str, list[str]]:
     return members
 
 
-def _unique(index: "SymbolIndex", name: str, *, file: str | None = None) -> str | None:
+def _unique(index: SymbolIndex, name: str, *, file: str | None = None) -> str | None:
     """Resolve a bare name to one symbol id, or give up rather than guess."""
 
     ids = index.by_name.get(name) or []
@@ -223,7 +224,7 @@ def _unique(index: "SymbolIndex", name: str, *, file: str | None = None) -> str 
 # ------------------------------------------------------------------ inheritance
 
 
-def inheritance_edges(index: "SymbolIndex") -> list[Edge]:
+def inheritance_edges(index: SymbolIndex) -> list[Edge]:
     """``INHERITS`` and ``IMPLEMENTS`` from every class base list.
 
     Python bases come straight from ``ast`` and are therefore provable.  Every
@@ -299,7 +300,7 @@ def inheritance_edges(index: "SymbolIndex") -> list[Edge]:
 # ------------------------------------------------------------- attribute access
 
 
-def attribute_edges(index: "SymbolIndex") -> list[Edge]:
+def attribute_edges(index: SymbolIndex) -> list[Edge]:
     """``READS`` and ``WRITES`` for ``self.x`` / ``this.x`` inside a body.
 
     An assignment is a write; every other mention is a read.  Mutating calls
@@ -361,7 +362,7 @@ def attribute_edges(index: "SymbolIndex") -> list[Edge]:
 
 
 def _member_target(
-    index: "SymbolIndex",
+    index: SymbolIndex,
     members: dict[str, list[str]],
     owner_ids: list[str],
     owner_file: str,
@@ -381,7 +382,7 @@ def _member_target(
 # ---------------------------------------------------------- transformation shape
 
 
-def transform_edges(index: "SymbolIndex") -> list[Edge]:
+def transform_edges(index: SymbolIndex) -> list[Edge]:
     """``TRANSFORMS`` for functions that accept an input and return one of them.
 
     A function whose declared parameters appear in its ``return`` statement is
@@ -445,7 +446,7 @@ def _signature_params(signature: str) -> list[str]:
 _STRONG_ORIGINS = frozenset({RelationOrigin.STATIC_DIRECT, RelationOrigin.TYPE_RESOLVED})
 
 
-def _obligation_target(index: "SymbolIndex", edge: Edge) -> bool:
+def _obligation_target(index: SymbolIndex, edge: Edge) -> bool:
     """Whether this call's target is specific enough to carry an obligation.
 
     A cross-file name match is not enough. On microsoft/playwright a bare
@@ -467,7 +468,7 @@ def _obligation_target(index: "SymbolIndex", edge: Edge) -> bool:
     return src.file == dst.file
 
 
-def obligation_edges(index: "SymbolIndex", graph: "CallGraph") -> list[Edge]:
+def obligation_edges(index: SymbolIndex, graph: CallGraph) -> list[Edge]:
     """``VALIDATES``, ``AUTHORIZES`` and ``SENDS_DATA_TO`` derived from calls.
 
     These re-read the call edges the graph already resolved, so the target is the
@@ -524,7 +525,7 @@ def obligation_edges(index: "SymbolIndex", graph: "CallGraph") -> list[Edge]:
 # ----------------------------------------------------------------- registration
 
 
-def registration_edges(index: "SymbolIndex") -> list[Edge]:
+def registration_edges(index: SymbolIndex) -> list[Edge]:
     """``REGISTERS`` and ``HANDLES_EVENT`` from decorators and handler names.
 
     A decorated function is registered with whatever the decorator belongs to,
@@ -602,7 +603,7 @@ def _is_emitter(symbol, file: str) -> bool:
 # -------------------------------------------------------------- resource lifetime
 
 
-def resource_edges(index: "SymbolIndex") -> list[Edge]:
+def resource_edges(index: SymbolIndex) -> list[Edge]:
     """``OPENS_RESOURCE``, ``CLOSES_RESOURCE``, plus task and transaction edges.
 
     The control-flow extractor already records these facts; nothing was turning
@@ -704,7 +705,7 @@ def _is_test_source(relpath: str) -> bool:
     return is_test_path(relpath)
 
 
-def test_edges(index: "SymbolIndex", graph: "CallGraph") -> list[Edge]:
+def test_edges(index: SymbolIndex, graph: CallGraph) -> list[Edge]:
     """``TESTS`` from a symbol in a test tree to the symbol it exercises.
 
     The source must be a *function* that runs, not the module that contains it.
@@ -744,7 +745,7 @@ def test_edges(index: "SymbolIndex", graph: "CallGraph") -> list[Edge]:
 # --------------------------------------------------------------- configuration
 
 
-def influence_edges(index: "SymbolIndex") -> list[Edge]:
+def influence_edges(index: SymbolIndex) -> list[Edge]:
     """``INFLUENCES`` from a function to the configuration it reads at runtime.
 
     Only real configuration nodes are linked: an ``environment variable`` edge
@@ -817,7 +818,7 @@ def _mentions_key(text: str, key: str) -> bool:
 # ---------------------------------------------------------------------- driver
 
 
-def build_relations(index: "SymbolIndex", graph: "CallGraph") -> list[Edge]:
+def build_relations(index: SymbolIndex, graph: CallGraph) -> list[Edge]:
     """Every semantic relation this repository can prove or honestly infer.
 
     The result is deliberately not deduplicated: two callers of the same

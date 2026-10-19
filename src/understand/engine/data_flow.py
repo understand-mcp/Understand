@@ -28,7 +28,7 @@ is reported with ``proven=False``.
 from __future__ import annotations
 
 import re
-from collections import defaultdict, deque
+from collections import defaultdict
 from dataclasses import dataclass, field
 
 from understand.engine.call_graph import CallGraph
@@ -61,6 +61,12 @@ _DB_METHOD_STRONG = r"(?:query|execute|exec|raw|unsafe|any|one|first|many|all|fi
 # receiver plus a weak method, never a weak receiver plus a weak method.
 _DB_METHOD_WEAK = r"(?:query|execute|exec|raw|run)\s*\("
 _DB_RECEIVER = rf"(?:{_DB_STRONG}(?:{_DB_METHOD_STRONG}|{_DB_METHOD_WEAK})|{_DB_WEAK}{_DB_METHOD_STRONG})"
+
+# Source kinds whose line number is a POSITION rather than a match.
+# ``_find_source`` hands back the enclosing function's first line when the
+# value came from a parameter or could not be tied to a source line at all,
+# so comparing that line with a sink line proves nothing either way.
+_NO_MATCHED_SOURCE_LINE = frozenset({"parameter", "unknown", "unknown-origin"})
 
 SOURCE_PATTERNS: tuple[tuple[str, str, str], ...] = (
     ("request", r"\b(?:req|request)\s*\.\s*(?:args|form|json|values|body|data|query_params|GET|POST|params|query)\b", "HTTP request data"),
@@ -355,7 +361,7 @@ class DataFlowAnalyzer:
 
     def _local_taint(self, sid: str, seeded: set[str]) -> tuple[set[str], set[str], dict[str, int]]:
         """Forward pass inside one symbol. Returns (tainted, validated_at, sinks_touched)."""
-        sym, lines, fact_table = self._body(sid)
+        _sym, lines, fact_table = self._body(sid)
         tainted: set[str] = set()
         validated: dict[str, int] = {}
         seed_lower = {s.lower() for s in seeded}
@@ -400,10 +406,7 @@ class DataFlowAnalyzer:
             leaf = m.group(1)
             if leaf in self._trusted_sanitizers or leaf.lower() in self._trusted_sanitizers:
                 return True
-        for leaf in _IDENT_RE.findall(rhs):
-            if leaf in self._trusted_sanitizers:
-                return True
-        return False
+        return any(leaf in self._trusted_sanitizers for leaf in _IDENT_RE.findall(rhs))
 
     # ------------------------------------------------------------------- main
     def analyze(self, *, limit: int = MAX_FLOWS) -> list[TaintFlow]:
@@ -412,7 +415,6 @@ class DataFlowAnalyzer:
         out_taint: dict[str, set[str]] = {}
         flow_seeds: dict[str, list[Hop]] = {}
 
-        max_depth = self.graph and 12 if self.deep else 6
 
         for _round in range(MAX_PROPAGATION_ROUNDS):
             changed = False
@@ -441,7 +443,7 @@ class DataFlowAnalyzer:
                     params = self.params.get(callee_id, [])
                     newly = set()
                     if params and passed:
-                        for idx, arg in enumerate(passed):
+                        for idx, _arg in enumerate(passed):
                             name = params[idx] if idx < len(params) else (params[-1] if len(params) == 1 else None)
                             if name:
                                 newly.add(name)
@@ -497,6 +499,15 @@ class DataFlowAnalyzer:
                     # hops, which is how one browser API call became a critical
                     # SQL-injection flow.
                     if not chain:
+                        continue
+                    # A source and a sink on the SAME line are one expression
+                    # matching two patterns, not a path: a value cannot flow
+                    # out of a line and back into it. ``conn.execute("SELECT
+                    # name FROM sqlite_master")`` holds both the db-read source
+                    # (the word SELECT) and the sql-exec sink (the method
+                    # call), so it was reported as a database read reaching SQL
+                    # execution with zero real propagation.
+                    if src_line == lineno and src_kind not in _NO_MATCHED_SOURCE_LINE:
                         continue
                     flows.append(TaintFlow(
                         source_kind=src_kind, source_description=src_doc,

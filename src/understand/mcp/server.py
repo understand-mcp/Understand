@@ -17,7 +17,8 @@ import inspect
 import json
 import os
 import sys
-from typing import Annotated, Any, Callable, Literal
+from collections.abc import Callable
+from typing import Annotated, Any, Literal
 
 from mcp.server.mcpserver import MCPServer
 from mcp.types import ToolAnnotations
@@ -31,7 +32,7 @@ from understand.mcp.tools import ToolBox
 
 logger = get_logger("mcp.server")
 
-__all__ = ["build_server", "run", "main", "INSTRUCTIONS"]
+__all__ = ["INSTRUCTIONS", "build_server", "main", "run"]
 
 INSTRUCTIONS = """\
 UNDERSTAND is an evidence-driven repository intelligence engine.
@@ -107,7 +108,7 @@ def _guard(name: str, handler: Callable[..., dict[str, Any]]) -> Callable[..., d
     def wrapper(*args: Any, **payload: Any) -> dict[str, Any]:
         try:
             return handler(*args, **payload)
-        except Exception as exc:  # noqa: BLE001 - MCP boundary
+        except Exception as exc:
             logger.debug("tool %s failed", name, exc_info=True)
             return {"ok": False, "tool": name, "error": schemas.error_envelope(exc)}
 
@@ -129,7 +130,7 @@ def _call(name: str, thunk: Callable[[], dict[str, Any]]) -> dict[str, Any]:
 
     try:
         return thunk()
-    except Exception as exc:  # noqa: BLE001 - MCP boundary
+    except Exception as exc:
         logger.debug("tool %s failed", name, exc_info=True)
         return {"ok": False, "tool": name, "error": schemas.error_envelope(exc)}
 

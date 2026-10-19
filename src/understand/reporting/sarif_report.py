@@ -21,13 +21,13 @@ from ..models import Evidence, Finding, ScanReport, Severity
 from ..security.redaction import redact_snippet
 
 __all__ = [
-    "render_sarif",
-    "sarif_dict",
-    "write_sarif",
     "SARIF_SCHEMA",
     "SARIF_SCHEMA_REPOSITORY",
     "SARIF_SPEC_URL",
     "SARIF_VERSION",
+    "render_sarif",
+    "sarif_dict",
+    "write_sarif",
 ]
 
 SARIF_VERSION = "2.1.0"

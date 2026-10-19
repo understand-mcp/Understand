@@ -124,7 +124,7 @@ class RuntimeConfig:
         p = Path(os.path.expanduser(self.storage_path))
         return p
 
-    def with_overrides(self, **kw: object) -> "RuntimeConfig":
+    def with_overrides(self, **kw: object) -> RuntimeConfig:
         return replace(self, **kw)  # type: ignore[arg-type]
 
 

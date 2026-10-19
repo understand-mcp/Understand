@@ -40,7 +40,11 @@ jobs:
       - name: Ruff
         run: |
           python -m pip install ruff
-          python -m ruff check src tests tools
+          # tests/fixtures holds a deliberately broken file: it proves the
+          # parser reports a failure instead of crashing. Ruff cannot parse
+          # it either, and a linter that stops on a fixture is a linter that
+          # never runs for anyone.
+          python -m ruff check src tests tools --exclude tests/fixtures
 
   sarif:
     # The SARIF output is validated against the official OASIS schema, not

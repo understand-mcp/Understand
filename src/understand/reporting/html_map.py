@@ -26,7 +26,7 @@ from typing import Any
 
 from ..errors import ResourceLimitExceeded
 
-__all__ = ["render_map_html", "write_map_html", "MAX_MAP_BYTES"]
+__all__ = ["MAX_MAP_BYTES", "render_map_html", "write_map_html"]
 
 MAX_MAP_BYTES = 80 * 1024 * 1024
 

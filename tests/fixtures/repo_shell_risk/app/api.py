@@ -2,8 +2,8 @@
 
 import subprocess
 
-from app.service import run_command, load_user
 from app.db import lookup
+from app.service import load_user, run_command
 
 
 def handle_ping(request):

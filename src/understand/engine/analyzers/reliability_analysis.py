@@ -38,7 +38,7 @@ class ReliabilityAnalyzer:
                 if not raw.strip():
                     continue
                 symbol = self._scope(ctx, path, lineno)
-                f = self._retry_without_timeout(ctx, path, lineno, raw.strip(), symbol, module)
+                f = self._retry_without_timeout(ctx, path, lineno, text.strip(), symbol, module)
                 if f:
                     findings.append(f)
                 f = self._blocking_sleep(ctx, path, lineno, raw.strip(), symbol, module)

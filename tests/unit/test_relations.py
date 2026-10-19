@@ -18,10 +18,9 @@ from pathlib import Path
 
 import pytest
 
-from understand.engine.call_graph import build_call_graph
 from understand.engine import language_detection as lang
+from understand.engine.call_graph import build_call_graph
 from understand.engine.graph_snapshot import snapshot_graph
-from understand.models import Edge, EdgeKind, RelationOrigin
 from understand.engine.relations import (
     _AUTHORIZE_RE,
     _EGRESS_METHOD,
@@ -31,10 +30,13 @@ from understand.engine.relations import (
     build_relations,
     inheritance_edges,
     obligation_edges,
-    test_edges as build_test_edges,
     transform_edges,
 )
+from understand.engine.relations import (
+    test_edges as build_test_edges,
+)
 from understand.engine.symbol_index import SymbolIndex, parse_module
+from understand.models import Edge, EdgeKind, RelationOrigin
 
 DATA_FLOW = Path(__file__).resolve().parents[2] / "src" / "understand" / "engine" / "data_flow.py"
 

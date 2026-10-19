@@ -271,6 +271,42 @@ def test_no_cache_flag(capsys, risky_repo: str, tmp_path: Path) -> None:
     assert json.loads(out)["from_cache"] is False
 
 
+
+def test_scan_config_file_is_actually_read(tmp_path) -> None:
+    """`--config` must reach `load_config`, not just be accepted.
+
+    Regression: `flush_pending` is a nested function that rebound
+    `config_path` without `nonlocal`, so the assignment made a local of the
+    same name. The outer value stayed None, `load_config(None)` ran on
+    defaults, and the command succeeded on a configuration file it had
+    silently ignored.
+    """
+    from understand.cli import parse_scan_tokens
+
+    cfg = tmp_path / "conf.json"
+    cfg.write_text(json.dumps({"storage_path": str(tmp_path / "from-file.db")}), encoding="utf-8")
+    for form in ("--config", "-c", "--config=" + str(cfg)):
+        argv = ["src", "security", form] + ([] if "=" in form else [str(cfg)])
+        _args, _flags, config_path = parse_scan_tokens(argv)
+        assert config_path == str(cfg), form
+    _args, _flags, config_path = parse_scan_tokens(["src", "security"])
+    assert config_path is None
+
+
+def test_scan_honours_the_config_file(tmp_path) -> None:
+    """End to end: the storage path in the file is the one the scan writes to."""
+    from understand.cli import main
+
+    db = tmp_path / "from-config.db"
+    cfg = tmp_path / "conf.json"
+    cfg.write_text(json.dumps({"storage_path": str(db)}), encoding="utf-8")
+    source = tmp_path / "repo"
+    source.mkdir()
+    (source / "app.py").write_text("def f():\n    return 1\n", encoding="utf-8")
+    code = main(["--config", str(cfg), "scan", str(source), "security", "--no-report", "-q"])
+    assert code == 0
+    assert db.exists(), "the scan wrote somewhere other than the configured storage_path"
+
 def test_exit_codes_documented() -> None:
     from understand.errors import (
         ConfigurationError,

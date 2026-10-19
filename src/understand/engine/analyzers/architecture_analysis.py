@@ -102,7 +102,7 @@ class ArchitectureAnalyzer:
                     "source of hidden coupling. This is a structural signal, not a defect."
                 ),
                 evidence=[Evidence(kind=EvidenceKind.SOURCE_RANGE, file=path, start_line=1,
-                                   end_line=module.lines and len(module.lines) or 1,
+                                   end_line=(module.lines and len(module.lines)) or 1,
                                    note=f"{count} symbols in one file")],
                 assumptions=["The file is a real source file rather than a generated or vendored file."],
                 impact="Higher maintenance and regression risk.",
@@ -119,7 +119,7 @@ class ArchitectureAnalyzer:
         out: list[Finding] = []
         forward: dict[str, set[str]] = defaultdict(set)
         for path, imports in ctx.index.imports.items():
-            for raw, line, _t in imports:
+            for raw, _line, _t in imports:
                 target = ctx.index.resolve_import(path, raw)
                 if target and target != path:
                     forward[path].add(target)

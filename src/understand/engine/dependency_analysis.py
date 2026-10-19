@@ -97,7 +97,7 @@ def _parse_pyproject(text: str) -> list[str]:
         import tomllib
 
         data = tomllib.loads(text)
-    except Exception:  # noqa: BLE001
+    except Exception:
         return out
     project = data.get("project") or {}
     for dep in project.get("dependencies", []) or []:
@@ -133,7 +133,7 @@ def _parse_cargo(text: str) -> list[str]:
         import tomllib
 
         data = tomllib.loads(text)
-    except Exception:  # noqa: BLE001
+    except Exception:
         return out
     for section in ("dependencies", "dev-dependencies", "build-dependencies"):
         block = data.get(section) or {}
@@ -210,7 +210,7 @@ def analyze_dependencies(root, files: dict[str, str], *, max_bytes: int = 2_000_
         if parser and text:
             try:
                 packages = sorted({p.strip() for p in parser(text) if p.strip()})
-            except Exception as exc:  # noqa: BLE001
+            except Exception as exc:
                 log.warning("dependency manifest %s could not be parsed: %s", relpath, exc)
                 packages = []
         result.records.append(DependencyRecord(
@@ -225,4 +225,4 @@ def dependency_status() -> tuple[str, str]:
     return "not_performed", DependencyAnalysis().vulnerability_reason
 
 
-__all__ = ["analyze_dependencies", "dependency_status", "DependencyAnalysis", "SupportLevel"]
+__all__ = ["DependencyAnalysis", "SupportLevel", "analyze_dependencies", "dependency_status"]

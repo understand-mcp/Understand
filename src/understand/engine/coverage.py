@@ -39,7 +39,7 @@ def parse_all(inv: Inventory, index: SymbolIndex, *, max_symbols: int) -> tuple[
         detection = lang.detect(path)
         try:
             module = parse_module(path, text, detection.language)
-        except Exception as exc:  # noqa: BLE001 - a malformed file must not kill the scan
+        except Exception as exc:
             failed.append(path)
             log.debug("parse failed for %s: %s", path, exc)
             continue

@@ -4,8 +4,8 @@ from __future__ import annotations
 
 import os
 import sys
+from collections.abc import Iterator
 from pathlib import Path
-from typing import Iterator
 
 import pytest
 
@@ -44,7 +44,7 @@ def mixed_repo() -> str:
 @pytest.fixture()
 def config(tmp_path: Path):
     """A RuntimeConfig isolated to a per-test temporary database."""
-    from understand.config import RuntimeConfig, SecurityPolicy, AnalysisPolicy
+    from understand.config import AnalysisPolicy, RuntimeConfig, SecurityPolicy
 
     return RuntimeConfig(
         storage_path=str(tmp_path / "understand.db"),
@@ -66,9 +66,9 @@ def store(config):
 @pytest.fixture(scope="session")
 def risky_index(risky_repo: str):
     """Parsed symbol index for the risky fixture (built once per session)."""
+    from understand.config import AnalysisPolicy
     from understand.engine.symbol_index import SymbolIndex, parse_module
     from understand.security.repository_policy import RepositoryPolicy
-    from understand.config import AnalysisPolicy
 
     policy = RepositoryPolicy(AnalysisPolicy(), allowed_roots=(risky_repo,))
     index = SymbolIndex()

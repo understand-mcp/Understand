@@ -9,8 +9,9 @@ from __future__ import annotations
 
 import os
 import sys
+from collections.abc import Callable
 from pathlib import Path
-from typing import Any, Callable
+from typing import Any
 
 from ..errors import UnsupportedFormatError
 from ..models import ScanReport
@@ -22,18 +23,18 @@ from .text_report import render_text, supports_color, write_text
 
 __all__ = [
     "SUPPORTED_FORMATS",
-    "render_report",
-    "write_report",
-    "safe_output_path",
-    "safe_map_output_path",
     "render_json",
-    "render_text",
-    "render_sarif",
     "render_map_html",
-    "write_map_html",
+    "render_report",
+    "render_sarif",
+    "render_text",
     "report_to_dict",
+    "safe_map_output_path",
+    "safe_output_path",
     "sarif_dict",
     "supports_color",
+    "write_map_html",
+    "write_report",
 ]
 
 SUPPORTED_FORMATS: tuple[str, ...] = ("json", "text", "sarif")

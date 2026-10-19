@@ -8,8 +8,8 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
-from understand.engine.analyzers.base import AnalysisContext
 from understand.engine.analyzers.architecture_analysis import ArchitectureAnalyzer
+from understand.engine.analyzers.base import AnalysisContext
 from understand.engine.analyzers.bug_analysis import BugAnalyzer
 from understand.engine.analyzers.reliability_analysis import ReliabilityAnalyzer
 from understand.engine.analyzers.security_analysis import SecurityAnalyzer
@@ -79,7 +79,7 @@ class AnalyzerRegistry:
                 continue
             try:
                 produced = entry.instance.run(ctx)  # type: ignore[attr-defined]
-            except Exception as exc:  # noqa: BLE001 - a broken analyzer must not kill the scan
+            except Exception as exc:
                 warnings.append(ScanWarning(stage=f"analyzer:{entry.name}",
                                            message=f"analyzer failed: {type(exc).__name__}: {exc}"))
                 log.exception("analyzer %s failed", entry.name)
@@ -102,4 +102,4 @@ def profile_checks(profile: str, requested: tuple[Check, ...] = ()) -> tuple[Che
     return tuple(merged)
 
 
-__all__ = ["AnalyzerRegistry", "registry", "AnalysisContext", "profile_checks", "DEFAULT_CHECKS"]
+__all__ = ["DEFAULT_CHECKS", "AnalysisContext", "AnalyzerRegistry", "profile_checks", "registry"]

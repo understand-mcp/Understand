@@ -14,8 +14,8 @@ from understand.models import (
     EvidenceKind,
     Finding,
     Profile,
-    ScanRequest,
     ScanReport,
+    ScanRequest,
     Severity,
     VerificationStatus,
 )
@@ -276,6 +276,5 @@ def test_store_rejects_newer_schema(tmp_path: Path) -> None:
     conn.commit()
     conn.close()
     # __enter__ initializes, so the rejection surfaces on entry, not on the body.
-    with pytest.raises(StorageError):
-        with ScanStore(path):
-            pass
+    with pytest.raises(StorageError), ScanStore(path):
+        pass

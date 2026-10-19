@@ -145,7 +145,7 @@ class ScanOrchestrator:
         dependencies: list[DependencyRecord] = []
         entry_points: list[dict] = []
 
-        def stage(name: str) -> "_StageCtx":
+        def stage(name: str) -> _StageCtx:
             return _StageCtx(self, stages, name)
 
         def checkpoint() -> None:
@@ -340,7 +340,7 @@ class ScanOrchestrator:
             status = "partial"
             errors.append(ScanWarning(stage="scan", message=str(exc), code="resource_limit_exceeded"))
             coverage = coverage or _empty_coverage()
-        except Exception as exc:  # noqa: BLE001
+        except Exception as exc:
             status = "failed"
             # UnderstandError carries its own code; anything else is an internal
             # failure and must not be reported as a user-input problem.
@@ -397,13 +397,13 @@ class ScanOrchestrator:
 
 
 class _StageCtx:
-    def __init__(self, orch: "ScanOrchestrator", stages: dict[str, StageRecord], name: str) -> None:
+    def __init__(self, orch: ScanOrchestrator, stages: dict[str, StageRecord], name: str) -> None:
         self.orch = orch
         self.stages = stages
         self.rec = stages[name]
         self.t0 = 0.0
 
-    def __enter__(self) -> "_StageCtx":
+    def __enter__(self) -> _StageCtx:
         self.t0 = time.monotonic()
         self.rec.status = StageStatus.RUNNING
         if self.orch.on_stage is not None:
@@ -443,7 +443,7 @@ def _scan_id(started: float) -> str:
     import os
 
     return "scan_" + hashlib.sha256(
-        f"{started:.6f}:{os.getpid()}:{time.time_ns()}".encode("utf-8")
+        f"{started:.6f}:{os.getpid()}:{time.time_ns()}".encode()
     ).hexdigest()[:16]
 
 

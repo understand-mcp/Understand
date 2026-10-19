@@ -14,7 +14,7 @@ from pathlib import Path
 from ..models import ScanReport, Severity
 from ..security.redaction import redact_snippet
 
-__all__ = ["render_text", "write_text", "supports_color"]
+__all__ = ["render_text", "supports_color", "write_text"]
 
 _SEVERITY_ORDER = (
     Severity.CRITICAL,

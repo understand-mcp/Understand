@@ -9,7 +9,7 @@ A CLI and an MCP server over one engine.
 [![Python](https://img.shields.io/badge/python-3.10%2B-3776ab)](https://www.python.org/)
 [![MCP](https://img.shields.io/badge/MCP-2.0-blue)](https://modelcontextprotocol.io)
 [![License](https://img.shields.io/badge/license-MIT-8a5cf5)](LICENSE)
-[![Tests](https://img.shields.io/badge/tests-515%20passed-brightgreen)](tests)
+[![Tests](https://img.shields.io/badge/tests-518%20passed-brightgreen)](tests)
 [![SARIF](https://img.shields.io/badge/output-SARIF%202.1.0-orange)](docs/cli.md)
 
 [Report a bug](https://github.com/understand-mcp/understand/issues) ·
@@ -742,7 +742,7 @@ python tools/validate_sarif.py
 ```
 
 ```text
-515 passed
+518 passed
 ```
 
 Linux, macOS and Windows, Python 3.10 to 3.13. Adding a check or a language:

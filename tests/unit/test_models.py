@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import pytest
+from pydantic import ValidationError as PydanticValidationError
 
 from understand import errors, models
 from understand.models import (
@@ -14,8 +15,8 @@ from understand.models import (
     Page,
     Profile,
     ResourceLimits,
-    ScanRequest,
     ScanReport,
+    ScanRequest,
     Severity,
     VerificationStatus,
     utcnow,
@@ -73,7 +74,10 @@ def test_finding_ensure_id_changes_with_location() -> None:
 
 
 def test_scan_request_rejects_unknown_fields() -> None:
-    with pytest.raises(Exception):
+    # Pydantic's ValidationError, not the project's own: extra fields on a
+    # Strict model are a schema violation, and the project's ValidationError
+    # deliberately does not subclass ValueError so the two cannot be confused.
+    with pytest.raises(PydanticValidationError):
         ScanRequest(repository=".", nonsense=True)  # type: ignore[call-arg]
 
 

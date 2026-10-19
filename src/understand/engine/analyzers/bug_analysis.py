@@ -313,7 +313,6 @@ class BugAnalyzer:
     # ------------------------------------------------------------- dead code
     def _dead_code_findings(self, ctx: AnalysisContext) -> list[Finding]:
         out: list[Finding] = []
-        module_symbols = [s for s in ctx.index.by_id.values() if s.kind == "module"]
         for sym in sorted(ctx.index.by_id.values(), key=lambda s: (s.file, s.start_line)):
             if sym.kind not in {"function", "method", "class"} or not sym.exported:
                 continue
@@ -456,4 +455,4 @@ def deduplicate(findings: list[Finding]) -> list[Finding]:
     return out
 
 
-__all__ = ["BugAnalyzer", "BUG_RULES", "deduplicate", "RelationOrigin"]
+__all__ = ["BUG_RULES", "BugAnalyzer", "RelationOrigin", "deduplicate"]

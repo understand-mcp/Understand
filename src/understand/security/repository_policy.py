@@ -73,7 +73,7 @@ class RepositoryPolicy:
         """Return whether a repository-relative path should be read."""
         try:
             rel = normalize_relpath(relpath)
-        except Exception as exc:  # noqa: BLE001
+        except Exception as exc:
             return ExclusionDecision(True, str(exc), "<invalid>")
 
         parts = rel.split("/")
@@ -127,6 +127,6 @@ class RepositoryPolicy:
         return full_rel
 
     @classmethod
-    def for_config(cls, config: RuntimeConfig, *, allowed_roots: tuple[str, ...] = ()) -> "RepositoryPolicy":
+    def for_config(cls, config: RuntimeConfig, *, allowed_roots: tuple[str, ...] = ()) -> RepositoryPolicy:
         roots = tuple(dict.fromkeys(config.local_roots + tuple(allowed_roots)))
         return cls(config.analysis, allowed_roots=roots)

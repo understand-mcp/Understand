@@ -7,6 +7,7 @@ in its documentation and does not test for it is only making a claim.
 
 from __future__ import annotations
 
+import itertools
 import json
 import re
 from pathlib import Path
@@ -524,7 +525,7 @@ class TestSymbolViews:
             "data_flow",
             "finding",
         }
-        assert FINDING_VIEWS == {"data_flow", "finding"}
+        assert {"data_flow", "finding"} == FINDING_VIEWS
         assert not FINDING_VIEWS & SYMBOL_VIEWS, (
             "a view is either a traversal from a root or a projection of findings; "
             "being both means its builder does not know which one it is"
@@ -835,8 +836,7 @@ class TestAdaptiveQuality:
 
 
 def _finding(finding_id: str = "SEC-FLOW-001-abc123", **overrides):
-    from understand.models import Confidence, Evidence, EvidenceKind, Finding, Severity
-    from understand.models import VerificationStatus
+    from understand.models import Confidence, Evidence, EvidenceKind, Finding, Severity, VerificationStatus
 
     payload = {
         "finding_id": finding_id,
@@ -1448,7 +1448,7 @@ class TestPlaceholderNodes:
 
     def test_a_real_symbol_is_not_a_placeholder(self) -> None:
         model = self._call_model()
-        real = [n for n in model["nodes"] if n["name"] == "handler"][0]
+        real = next(n for n in model["nodes"] if n["name"] == "handler")
         assert real["placeholder"] is False
         assert real["shape"] == "circle"
 
@@ -1577,7 +1577,7 @@ class TestSeverityBordersAreVisible:
         widths = {k: float(v) for k, v in re.findall(r"(\w+):\s*([0-9.]+)", block)}
         order = ["critical", "high", "medium", "low", "info"]
         assert set(order) <= set(widths)
-        for worse, better in zip(order, order[1:]):
+        for worse, better in itertools.pairwise(order):
             assert widths[worse] > widths[better], f"{worse} must be heavier than {better}"
 
     def test_the_stroke_no_longer_reuses_the_fill(self) -> None:

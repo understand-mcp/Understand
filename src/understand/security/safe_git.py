@@ -224,7 +224,7 @@ def _run_git(args: list[str], cwd: Path, timeout: float, env: dict[str, str]) ->
     if not exe:
         raise ValidationError("git executable is unavailable; remote scanning requires git on PATH")
     try:
-        proc = subprocess.run(  # noqa: S603 - explicit argv, no shell
+        proc = subprocess.run(
             [exe, *args],
             cwd=str(cwd),
             env=env,

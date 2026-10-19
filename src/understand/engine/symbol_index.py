@@ -73,7 +73,7 @@ def _py_signature(node: ast.AST) -> str:
                 parts.append("*" + args.vararg.arg)
             elif args.kwonlyargs:
                 parts.append("*")
-            for a, d in zip(args.kwonlyargs, args.kw_defaults):
+            for a, d in zip(args.kwonlyargs, args.kw_defaults, strict=False):
                 piece = a.arg
                 if d is not None:
                     piece += "=" + ast.unparse(d)
@@ -88,7 +88,7 @@ def _py_signature(node: ast.AST) -> str:
             kw = ", ".join(f"{k.arg}={ast.unparse(k.value)}" for k in node.keywords if k.arg)
             inner = ", ".join(x for x in (bases, kw) if x)
             return f"class {node.name}({inner})" if inner else f"class {node.name}"
-    except Exception:  # noqa: BLE001 - signature is best-effort only
+    except Exception:
         return ""
     return ""
 
@@ -96,7 +96,7 @@ def _py_signature(node: ast.AST) -> str:
 def _py_doc(node: ast.AST) -> str:
     try:
         return (ast.get_docstring(node) or "").strip().split("\n")[0][:300]
-    except Exception:  # noqa: BLE001
+    except Exception:
         return ""
 
 
@@ -130,7 +130,7 @@ def parse_python(path: str, text: str) -> ParsedModule:
     py_prefixes = lang.comment_prefixes_for("python")
     sanitized, comments, _ = strip_comments_and_strings(lines, py_prefixes)
     module.comments = comments
-    module.dirty_lines = {i: v for i, v in enumerate(sanitized, start=1)}
+    module.dirty_lines = dict(enumerate(sanitized, start=1))
     try:
         tree = ast.parse(text, filename=path)
     except SyntaxError as exc:
@@ -288,7 +288,7 @@ def parse_structural(path: str, text: str, language: str) -> ParsedModule:
     module = ParsedModule(path=path, language=language, support=SupportLevel.PARTIAL, lines=lines)
     sanitized, comments, _ = strip_comments_and_strings(lines, prefixes)
     module.comments = comments
-    module.dirty_lines = {i: v for i, v in enumerate(sanitized, start=1)}
+    module.dirty_lines = dict(enumerate(sanitized, start=1))
     module.literals = extract_string_assignments(lines)
 
     joined = "\n".join(sanitized)
@@ -454,7 +454,7 @@ def _parse_structured_data(path: str, text: str, language: str) -> ParsedModule:
             import tomllib
 
             data = tomllib.loads(text)
-    except Exception as exc:  # noqa: BLE001
+    except Exception as exc:
         module.parse_error = f"{type(exc).__name__}: {exc}"
         return module
     keys: list[tuple[str, int]] = []
@@ -556,11 +556,11 @@ class SymbolIndex:
 
 
 __all__ = [
+    "CALL_RE",
     "SymbolIndex",
+    "is_test_path",
     "parse_module",
     "parse_python",
     "parse_structural",
     "truncate_lines",
-    "CALL_RE",
-    "is_test_path",
 ]

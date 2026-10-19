@@ -68,12 +68,31 @@ filterwarnings = ["ignore::DeprecationWarning"]
 
 [tool.ruff]
 line-length = 110
+
 target-version = "py311"
+
+# UP042 wants `enum.StrEnum` instead of `class X(str, Enum)`. StrEnum was added
+# in 3.11 and the package claims 3.10 support, so following this rule would
+# break the oldest interpreter the project says it runs on.
+#
+# SIM112 wants SCREAMING_CASE environment variable names. The Windows variable
+# is `SystemRoot`, mixed case, and renaming the literal would stop the
+# protected-path check from ever matching on Windows.
 src = ["src", "tests"]
 
 [tool.ruff.lint]
 select = ["E", "F", "W", "I", "UP", "B", "C4", "SIM", "RUF"]
-ignore = ["B008", "E501", "RUF001", "RUF002", "RUF003", "SIM108"]
+ignore = [
+    "B008", "E501", "RUF001", "RUF002", "RUF003", "SIM108",
+    # UP042 wants `enum.StrEnum` instead of `class X(str, Enum)`. StrEnum was
+    # added in 3.11 and the package claims 3.10 support, so following this rule
+    # would break the oldest interpreter the project says it runs on.
+    #
+    # SIM112 wants SCREAMING_CASE environment variable names. The Windows variable
+    # is `SystemRoot`, mixed case, and renaming the literal would stop the
+    # protected-path check from ever matching on Windows.
+    "UP042", "SIM112",
+]
 
 [tool.ruff.lint.per-file-ignores]
 "tests/*" = ["E402", "F401"]

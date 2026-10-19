@@ -91,7 +91,7 @@ def group_by_category(findings: list[Finding]) -> dict[str, list[Finding]]:
 
 def suppression_key(f: Finding) -> str:
     return hashlib.sha256(
-        f"{f.rule_id}|{f.fingerprint}".encode("utf-8")
+        f"{f.rule_id}|{f.fingerprint}".encode()
     ).hexdigest()[:16]
 
 

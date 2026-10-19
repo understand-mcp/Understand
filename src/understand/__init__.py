@@ -6,7 +6,7 @@ call the same application services, analysis pipeline and reporting code.
 
 from __future__ import annotations
 
-__all__ = ["__version__", "TOOL_NAME", "REPORT_SCHEMA_VERSION"]
+__all__ = ["REPORT_SCHEMA_VERSION", "TOOL_NAME", "__version__"]
 
 __version__ = "0.1.0"
 TOOL_NAME = "understand"

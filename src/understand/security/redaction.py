@@ -85,7 +85,4 @@ def looks_like_secret(value: str) -> bool:
     if not value or len(value) < 8:
         return False
     v = value.strip().strip("\"'")
-    for _n, pat in _PATTERNS:
-        if pat.fullmatch(v) or pat.search(v):
-            return True
-    return False
+    return any(pat.fullmatch(v) or pat.search(v) for _n, pat in _PATTERNS)

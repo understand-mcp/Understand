@@ -217,7 +217,6 @@ def strip_comments_and_strings(
         i = 0
         n = len(line)
         buf: list[str] = []
-        comment_hit = False
         while i < n:
             if in_block:
                 if line.startswith("*/", i):
@@ -238,11 +237,9 @@ def strip_comments_and_strings(
                     i += 1
                     continue
                 comments[idx] = rest.strip().strip("#").strip()
-                comment_hit = True
                 break
             if ch == "/" and i + 1 < n and line[i + 1] == "/" and "//" in comment_prefixes:
                 comments[idx] = line[i + 2 :].strip()
-                comment_hit = True
                 break
             if ch in "\"'`":
                 quote = ch

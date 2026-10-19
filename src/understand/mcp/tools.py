@@ -9,7 +9,8 @@ from __future__ import annotations
 
 import functools
 import threading
-from typing import Any, Callable, TypeVar
+from collections.abc import Callable
+from typing import Any, TypeVar
 
 from understand import __version__
 from understand.application import (
@@ -45,7 +46,7 @@ def envelope(name: str, handler: _F | None = None) -> _F | Callable[[_F], _F]:
         def wrapper(*args: Any, **kwargs: Any) -> dict[str, Any]:
             try:
                 result = func(*args, **kwargs)
-            except Exception as exc:  # noqa: BLE001 - tool boundary
+            except Exception as exc:
                 logger.debug("tool %s failed", name, exc_info=True)
                 return {"ok": False, "tool": name, "error": schemas.error_envelope(exc)}
             if isinstance(result, dict):
@@ -132,7 +133,7 @@ class ToolBox:
         if job.error is not None:
             raise job.error if isinstance(job.error, Exception) else RuntimeError(str(job.error))
         report = job.report
-        assert report is not None  # noqa: S101 - guarded by job.error
+        assert report is not None
         page = self.findings.query_report(report, limit=200)
         payload_out = self.reports.payload(
             report,

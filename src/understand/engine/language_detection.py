@@ -14,7 +14,7 @@ Nothing here claims semantic equivalence across languages.
 
 from __future__ import annotations
 
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 
 from understand.models import SupportLevel
 

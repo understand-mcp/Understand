@@ -165,7 +165,7 @@ class ScanService:
             self._policy = RepositoryPolicy.for_config(self.config)
         return self._policy
 
-    def open(self) -> "ScanService":
+    def open(self) -> ScanService:
         """Initialize storage and recover jobs abandoned by a previous run."""
 
         if self._store is None:
@@ -186,7 +186,7 @@ class ScanService:
                 logger.debug("store close failed", exc_info=True)
             self._store = None
 
-    def __enter__(self) -> "ScanService":
+    def __enter__(self) -> ScanService:
         return self.open()
 
     def __exit__(self, *exc: object) -> None:

@@ -34,7 +34,6 @@ from understand.security.repository_policy import RepositoryPolicy
 from understand.security.safe_git import GitRemote, parse_git_url
 from understand.security.sandbox import ExecutionPolicy, run_tool
 
-
 # --------------------------------------------------------------------------- paths
 
 
@@ -300,6 +299,46 @@ def test_workspace_cleans_up() -> None:
 # --------------------------------------------------------------------------- policy
 
 
+def test_a_regex_table_is_not_code_injection() -> None:
+    """``re.compile(r"...")`` is a regex table, not code execution.
+
+    This was found by pointing the tool at its own source: the eval rule
+    matched every ``re.compile`` in the repository, 66 high findings that all
+    said the same thing. The character after ``(`` in a raw string is the
+    prefix ``r``, and a "the argument is not a quote" test matches it happily.
+    """
+    from understand.engine.analyzers.security_analysis import RULES
+
+    patterns = {
+        r.rule_id: r.pattern for r in RULES if r.rule_id in ("SEC-PY-EVAL-001", "SEC-PY-COMPILE-001")
+    }
+    assert set(patterns) == {"SEC-PY-EVAL-001", "SEC-PY-COMPILE-001"}
+
+    benign = [
+        r'EARLY_RETURN_RE = re.compile(r"\breturn\b")',
+        "PATTERN = re.compile(pattern, re.I)",
+        're.compile(r"exec")',
+        'exec(r"ls -la")',
+        'exec(b"print(1)")',
+        'exec("literal")',
+        '__import__("os")',
+        '__import__(rb"os")',
+    ]
+    for line in benign:
+        assert not any(p.search(line) for p in patterns.values()), line
+
+    dangerous = [
+        "eval(user_input)",
+        "exec(cmd)",
+        'exec("ls " + d)',
+        "__import__(mod)",
+        'compile(src, f, "exec")',
+        'compile(user_src, "<s>", "eval")',
+    ]
+    for line in dangerous:
+        assert any(p.search(line) for p in patterns.values()), line
+
+
 def test_vendored_bundles_inside_the_tree_are_excluded() -> None:
     """A checked-in library under a fixture is still a library.
 
@@ -362,7 +401,7 @@ def test_forbidden_names_are_blocked(tmp_path: Path) -> None:
 
     policy = RepositoryPolicy(AnalysisPolicy(), allowed_roots=(str(tmp_path),))
     for name in list(FORBIDDEN_NAMES)[:5]:
-        candidate = tmp_path / name
+        tmp_path / name
         assert policy.decide(name).excluded
 
 

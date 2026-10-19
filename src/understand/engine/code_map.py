@@ -25,31 +25,32 @@ no way to fabricate a fact the model does not already carry.
 
 from __future__ import annotations
 
+import itertools
 import math
 import os
-import random
+from collections.abc import Iterable, Sequence
 from dataclasses import dataclass, field, replace
-from typing import Any, Iterable, Sequence
+from typing import Any
 
 from ..errors import ValidationError
 from ..models import EdgeKind
 
 __all__ = [
-    "MapBudget",
-    "MapSpec",
+    "EDGE_STYLES",
+    "EXPLAIN_KINDS",
+    "FINDING_VIEWS",
+    "MAX_DEPTH",
+    "NODE_SHAPES",
+    "SEVERITY_ORDER",
+    "SYMBOL_VIEWS",
     "VIEWS",
     "VIEW_KINDS",
     "VIEW_QUESTIONS",
-    "SYMBOL_VIEWS",
-    "FINDING_VIEWS",
-    "NODE_SHAPES",
-    "EDGE_STYLES",
-    "SEVERITY_ORDER",
-    "MAX_DEPTH",
+    "MapBudget",
+    "MapSpec",
     "build_map",
-    "validate_spec",
     "explain_finding",
-    "EXPLAIN_KINDS",
+    "validate_spec",
 ]
 
 #: Hard ceiling on traversal depth.  Past this a call tree stops being a map and
@@ -630,7 +631,7 @@ def explain_finding(
     finding_id: str,
     *,
     depth: int = 4,
-    budget: "MapBudget | None" = None,
+    budget: MapBudget | None = None,
 ) -> dict[str, Any]:
     """Build the causal account of one finding, with its map request.
 
@@ -1121,7 +1122,6 @@ def _traverse(
         out.setdefault(src, []).append(edge)
         inc.setdefault(dst, []).append(edge)
 
-    adjacency = {"out": out, "in": inc}
 
     distances: dict[str, int] = {}
     frontier = [node for node in [root_id, *extra_roots] if node]
@@ -1284,7 +1284,7 @@ def _symbol_map(
         node_ids = {src for src, _dst, _kind in collapsed} | {
             dst for _src, dst, _kind in collapsed
         }
-        distances = {node: 0 for node in node_ids}
+        distances = dict.fromkeys(node_ids, 0)
 
     if not node_ids:
         # Two very different situations produce an empty neighbourhood, and the
@@ -1610,7 +1610,7 @@ def _data_flow_map(
                 or f.rule_id == spec.root
                 or wanted in f.affected_symbols
                 or f.rule_id == wanted
-                or file_hint and any(e.file == file_hint for e in f.evidence)
+                or (file_hint and any(e.file == file_hint for e in f.evidence))
             )
         ]
         if not scope:
@@ -1656,7 +1656,7 @@ def _data_flow_map(
                 continue
             drawn_here += 1
             flows_drawn += 1
-            for (src, src_role), (dst, _dst_role) in zip(chain, chain[1:]):
+            for (src, src_role), (dst, _dst_role) in itertools.pairwise(chain):
                 if src == dst:
                     continue
                 key = (src, dst, finding.rule_id)
@@ -1886,11 +1886,10 @@ def _finding_map(
                 **record,
                 "confidence": EDGE_STYLES.get(origin, "dashed"),
                 "label": f"{record['kind']} x{record['count']}"
-                + (f" · both carry findings" if per_node[key[0]]["count"] and per_node[key[1]]["count"] else ""),
+                + (" · both carry findings" if per_node[key[0]]["count"] and per_node[key[1]]["count"] else ""),
             }
         )
 
-    severities = _symbol_findings(report, spec.include_findings)
     nodes: list[dict[str, Any]] = []
     for node_id in kept:
         node = raw_nodes[node_id]
@@ -2044,7 +2043,7 @@ def hashlib_digest_int(text: str, salt: str) -> int:
 
     import hashlib
 
-    digest = hashlib.sha256(f"{salt}\x00{text}".encode("utf-8")).hexdigest()
+    digest = hashlib.sha256(f"{salt}\x00{text}".encode()).hexdigest()
     return int(digest[:8], 16)
 
 
@@ -2286,7 +2285,7 @@ def _assign_component_coordinates(
         widest = max(widest, lane_width)
         top = cursor_y
         lane_height = 0.0
-        for row, row_width in zip(rows, row_widths):
+        for row, row_width in zip(rows, row_widths, strict=False):
             # Centre each wrapped row inside the lane so the wrapping reads as
             # one block rather than as a ragged left edge. The horizontal cursor
             # is reset per row: leaving it running turned the wrap into one
@@ -2525,7 +2524,7 @@ def _separate(nodes: list[dict[str, Any]], buckets: dict[int, list[int]]) -> Non
     layered layout still comes out as a smear.
     """
 
-    for depth, items in buckets.items():
+    for _depth, items in buckets.items():
         if len(items) < 2:
             continue
         rows = [_node_width(nodes[index]) for index in items]
@@ -2545,7 +2544,7 @@ def _separate(nodes: list[dict[str, Any]], buckets: dict[int, list[int]]) -> Non
             if xs[i] > limit:
                 xs[i] = limit
         shift = -(max(xs) - min(xs)) / 2.0 if xs else 0.0
-        for index, x in zip(items, xs):
+        for index, x in zip(items, xs, strict=False):
             nodes[index]["_x"] = x + shift
 
 
@@ -2563,7 +2562,7 @@ def _count_crossings(
     """
 
     slot: dict[int, int] = {}
-    for depth, items in order.items():
+    for _depth, items in order.items():
         for position, node in enumerate(items):
             slot[node] = position
 

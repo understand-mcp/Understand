@@ -11,7 +11,7 @@ import re
 from dataclasses import dataclass, field
 
 from understand.engine.symbol_index import SymbolIndex
-from understand.models import EdgeKind, Edge, RelationOrigin, Symbol
+from understand.models import Edge, EdgeKind, RelationOrigin
 
 BRANCH_RE = re.compile(r"\b(?:if|elif|else\s+if|switch|case|match|when|unless)\b")
 LOOP_RE = re.compile(r"\b(?:for|while|forEach|foreach|loop|do)\b")

@@ -103,7 +103,7 @@ def run_tool(
     env.setdefault("LC_ALL", "C")
     limit = timeout or policy.default_timeout
     try:
-        proc = subprocess.run(  # noqa: S603 - argv list, shell=False
+        proc = subprocess.run(
             argv,
             cwd=str(cwd) if cwd else None,
             env=env,

@@ -25,7 +25,7 @@ _CACHE = ROOT / "tools" / ".sarif-schema.json"
 def load_schema(url: str) -> dict:
     if url == SARIF_SCHEMA and _CACHE.exists():
         return json.loads(_CACHE.read_text(encoding="utf-8"))
-    with urllib.request.urlopen(url, timeout=60) as response:  # noqa: S310 - fixed https URL
+    with urllib.request.urlopen(url, timeout=60) as response:
         data = json.loads(response.read().decode("utf-8"))
     if url == SARIF_SCHEMA:
         _CACHE.write_text(json.dumps(data), encoding="utf-8")
@@ -33,11 +33,12 @@ def load_schema(url: str) -> dict:
 
 
 def build() -> dict:
-    from understand.config import AnalysisPolicy, RuntimeConfig, SecurityPolicy
+    import tempfile
+
     from understand.application.scan_service import ScanService
+    from understand.config import AnalysisPolicy, RuntimeConfig, SecurityPolicy
     from understand.models import Check, Profile, ScanRequest
     from understand.reporting.sarif_report import sarif_dict
-    import tempfile
 
     with tempfile.TemporaryDirectory() as tmp:
         config = RuntimeConfig(

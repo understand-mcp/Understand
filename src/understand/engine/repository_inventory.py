@@ -12,7 +12,6 @@ from understand.logging_config import get_logger
 from understand.models import FileRecord, SupportLevel
 from understand.security.path_validation import relative_to_root, resolve_within
 from understand.security.repository_policy import RepositoryPolicy
-from understand.security.sandbox import Workspace
 
 log = get_logger("engine.inventory")
 
@@ -167,7 +166,7 @@ def build_inventory(root: Path, policy: RepositoryPolicy, *, max_files: int,
                 resolved = resolve_within(root_resolved, entry,
                                           allow_symlinks=policy.analysis.follow_symlinks)
                 size = resolved.stat().st_size
-            except (OSError, Exception) as exc:  # noqa: B014 - AccessDeniedError included
+            except (OSError, Exception) as exc:
                 inv.failed += 1
                 log.debug("cannot stat %s: %s", rel, exc)
                 continue
@@ -216,9 +215,8 @@ def _classify(inv: Inventory, rel: str) -> None:
         inv.build_systems.append(BUILD_SYSTEM_MARKERS[base])
         inv.manifests.append(rel)
     for marker in CI_MARKERS:
-        if marker in low or base == marker.rsplit("/", 1)[-1]:
-            if rel not in inv.ci_files:
-                inv.ci_files.append(rel)
+        if (marker in low or base == marker.rsplit("/", 1)[-1]) and rel not in inv.ci_files:
+            inv.ci_files.append(rel)
     if base in ENTRY_FILES or low.endswith(("/main", "/main.py")):
         inv.entry_points.append(rel)
     if rel.endswith(SCHEMA_EXTENSIONS) or any(h in low for h in SPEC_HINTS):
@@ -229,13 +227,12 @@ def _classify(inv: Inventory, rel: str) -> None:
         inv.infra.append(rel)
     if rel.endswith(SCRIPT_SUFFIXES):
         inv.scripts.append(rel)
-    if "/test" in low or low.startswith("test") or "/spec" in low or "/__tests__/" in low:
-        if rel not in inv.test_dirs:
-            inv.test_dirs.append(rel)
+    if ("/test" in low or low.startswith("test") or "/spec" in low
+            or "/__tests__/" in low) and rel not in inv.test_dirs:
+        inv.test_dirs.append(rel)
     for framework, markers in FRAMEWORK_MARKERS.items():
-        if any(m in low or base == m for m in markers):
-            if framework not in inv.frameworks:
-                inv.frameworks.append(framework)
+        if any(m in low or base == m for m in markers) and framework not in inv.frameworks:
+            inv.frameworks.append(framework)
 
 
 def detect_frameworks_from_manifests(inv: Inventory) -> list[str]:
@@ -255,4 +252,4 @@ def assert_within_budget(count: int, max_files: int) -> None:
         raise ResourceLimitExceeded(f"file count {count} exceeds max_files={max_files}")
 
 
-__all__ = ["Inventory", "build_inventory", "detect_frameworks_from_manifests", "AnalysisPolicy"]
+__all__ = ["AnalysisPolicy", "Inventory", "build_inventory", "detect_frameworks_from_manifests"]

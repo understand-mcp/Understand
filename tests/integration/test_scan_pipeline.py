@@ -118,9 +118,8 @@ def test_scan_status_round_trip(risky_repo: str, config) -> None:
 
 
 def test_unknown_scan_raises(risky_repo: str, config) -> None:
-    with ScanService(config) as service:
-        with pytest.raises(ScanNotFound):
-            service.report("scan-does-not-exist")
+    with ScanService(config) as service, pytest.raises(ScanNotFound):
+        service.report("scan-does-not-exist")
 
 
 def test_list_scans_is_paginated(risky_repo: str, config) -> None:
@@ -170,23 +169,23 @@ def test_cancel_unknown_scan_returns_false(config) -> None:
 
 def test_timeout_raises_resource_limit(risky_repo: str, config) -> None:
     limits = ResourceLimits(max_seconds=0.01)
-    with ScanService(config) as service:
-        with pytest.raises((ResourceLimitExceeded, Exception)):
-            service.run_sync(_request(risky_repo, limits=limits), timeout=0.2)
+    with ScanService(config) as service, pytest.raises((ResourceLimitExceeded, Exception)):
+        service.run_sync(_request(risky_repo, limits=limits), timeout=0.2)
 
 
 def test_validate_rejects_remote_when_disabled(config) -> None:
-    with ScanService(config) as service:
-        with pytest.raises(ValidationError):
-            service.validate(_request("https://github.com/owner/repo"))
+    with ScanService(config) as service, pytest.raises(ValidationError):
+        service.validate(_request("https://github.com/owner/repo"))
 
 
 def test_validate_rejects_empty_repository(config) -> None:
-    with ScanService(config) as service:
-        # model_construct bypasses pydantic so the service-level guard, not the
-        # model validator, is what rejects the request.
-        with pytest.raises(ValidationError):
-            service.validate(ScanRequest.model_construct(repository=""))
+    # model_construct bypasses pydantic so the service-level guard, not the
+    # model validator, is what rejects the request.
+    with (
+        ScanService(config) as service,
+        pytest.raises(ValidationError),
+    ):
+        service.validate(ScanRequest.model_construct(repository=""))
 
 
 def test_missing_source_fails_cleanly(config, tmp_path: Path) -> None:

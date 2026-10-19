@@ -141,7 +141,7 @@ def test_call_graph_resolves_and_traces(risky_index, risky_graph) -> None:
 
 
 def test_call_graph_records_unresolved_calls(risky_index) -> None:
-    graph = build_call_graph(risky_index)
+    build_call_graph(risky_index)
     index = SymbolIndex()
     index.add(
         parse_module(

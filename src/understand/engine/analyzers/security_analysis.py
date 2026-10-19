@@ -30,8 +30,6 @@ from understand.models import (
     Evidence,
     EvidenceKind,
     Finding,
-    Profile,
-    RelationOrigin,
     Severity,
     VerificationStatus,
 )
@@ -137,15 +135,55 @@ RULES: tuple[Rule, ...] = (
         rule_id="SEC-PY-EVAL-001",
         title="Dynamic evaluation of non-literal code",
         category="code-injection",
-        pattern=_r(r"\beval\s*\(", r"\bexec\s*\(\s*[^'\"f]", r"\bcompile\s*\(\s*[^'\"]",
-                   r"\b__import__\s*\(\s*[^'\"]"),
+        pattern=_r(
+            r"\beval\s*\(",
+            # A raw or byte string is still a literal, so ``exec(r"ls")`` is not
+            # dynamic evaluation. The string PREFIX has to be excluded as well
+            # as the quote: the character after ``(`` in ``re.compile(r"...")``
+            # is ``r``, and a naive "must not be a quote" test matches it --
+            # which made every regex table in this repository report itself as
+            # a code-injection site before the rule was corrected.
+            # "Is the whole argument one string literal?" A plain literal is a
+            # quote, anything without a quote or a plus, the closing quote, and
+            # then the closing paren. Testing only for a leading quote missed
+            # ``exec("ls " + d)``, which is a concatenation and executes
+            # exactly as much attacker code as a bare ``eval``.
+            r"\bexec\s*\(\s*(?![rRbBuUfF]{0,2}['\"][^'+]*['\"]\s*\))",
+            # ``compile`` is deliberately absent. ``re.compile`` is a regex
+            # compiler; the builtin ``compile()`` only produces a code object
+            # when its mode argument says exec/eval/single, and this pattern
+            # cannot see arguments. The same trap is already handled in
+            # ``data_flow.py``, where ``compile(`` is excluded for the same
+            # reason.
+            r"\b__import__\s*\(\s*(?![rRbBuUfF]{0,2}['\"][^'+]*['\"]\s*\))",
+    ),
         languages=("python",),
         severity=Severity.HIGH,
         confidence=Confidence.MEDIUM,
-        explanation="eval/exec/compile on a computed string executes code in the current process.",
+        explanation="eval/exec/__import__ on a computed string executes code in the current process.",
         impact="Arbitrary code execution.",
         remediation="Replace dynamic execution with an explicit dispatch table.",
         assumptions=("The evaluated string is not a fixed constant from the codebase.",),
+        references=("https://cwe.mitre.org/data/definitions/95.html",),
+    ),
+    Rule(
+        rule_id="SEC-PY-COMPILE-001",
+        title="Code object built from a computed string",
+        category="code-injection",
+        # ``compile`` had to leave SEC-PY-EVAL-001 because the character after
+        # ``(`` in ``re.compile(r"...")`` is the raw-string prefix and a naive
+        # test matches it -- which made every regex table in this repository
+        # report itself as a code-injection site. But builtin ``compile`` with
+        # an exec/eval/single mode DOES build a code object, so dropping it
+        # silently was a hole. It gets its own rule, keyed on the mode
+        # argument, with lookbehinds so a regex module never matches.
+        pattern=_r(r"(?<![A-Za-z0-9_.])(?<!re\.)(?<!regex\.)compile\s*\([^)]*['\"](?:exec|eval|single)['\"]"),
+        languages=("python",),
+        severity=Severity.HIGH,
+        confidence=Confidence.MEDIUM,
+        explanation="compile() with an exec, eval or single mode builds a code object from a string.",
+        impact="A code object built from a computed string can be executed later with arbitrary effect.",
+        remediation="Build the function from a fixed table of allowed code, not from a string.",
         references=("https://cwe.mitre.org/data/definitions/95.html",),
     ),
     Rule(
@@ -563,7 +601,7 @@ def build_findings(matches: list[RuleMatch], ctx: AnalysisContext) -> list[Findi
             ],
             affected_symbols=[match.symbol] if match.symbol else [],
             assumptions=assumptions,
-            preconditions=[a for a in assumptions],
+            preconditions=list(assumptions),
             impact=rule.impact,
             remediation=rule.remediation,
             references=list(rule.references),

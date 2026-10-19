@@ -191,33 +191,33 @@ def test_safe_output_path_accepts_plain_name(tmp_path: Path) -> None:
 
 
 def test_safe_output_path_rejects_traversal() -> None:
-    with pytest.raises(Exception):
+    with pytest.raises(UnsupportedFormatError):
         safe_output_path("../escape.json", fmt="json")
-    with pytest.raises(Exception):
+    with pytest.raises(UnsupportedFormatError):
         safe_output_path("/tmp/../etc/passwd", fmt="json")
 
 
 def test_safe_output_path_rejects_protected_dirs() -> None:
-    with pytest.raises(Exception):
+    with pytest.raises(UnsupportedFormatError):
         safe_output_path("/etc/understand.json", fmt="json")
 
 
 def test_safe_output_path_rejects_extension_mismatch(tmp_path: Path) -> None:
-    with pytest.raises(Exception):
+    with pytest.raises(UnsupportedFormatError):
         safe_output_path(tmp_path / "report.txt", fmt="sarif")
 
 
 def test_safe_output_path_rejects_hostile_names(tmp_path: Path) -> None:
-    with pytest.raises(Exception):
+    with pytest.raises(UnsupportedFormatError):
         safe_output_path(tmp_path / "CON.json", fmt="json")
-    with pytest.raises(Exception):
+    with pytest.raises(UnsupportedFormatError):
         safe_output_path(tmp_path / "report.json.", fmt="json")
 
 
 def test_safe_output_path_rejects_directory(tmp_path: Path) -> None:
     target = tmp_path / "adir.json"
     target.mkdir()
-    with pytest.raises(Exception):
+    with pytest.raises(UnsupportedFormatError):
         safe_output_path(target, fmt="json")
 
 
@@ -229,7 +229,7 @@ def test_safe_output_path_rejects_symlink(tmp_path: Path) -> None:
         link.symlink_to(real)
     except OSError:  # pragma: no cover - Windows without developer mode
         pytest.skip("symlinks unavailable")
-    with pytest.raises(Exception):
+    with pytest.raises(UnsupportedFormatError):
         safe_output_path(link, fmt="json")
 
 
