@@ -470,6 +470,7 @@ USAGE
   {PROGRAM} finding show FINDING_ID [--scan-id SCAN_ID] [--format json]
   {PROGRAM} map show SCAN_ID [--view module] [--root PATH] [--depth N]
   {PROGRAM} map views
+  {PROGRAM} map explain FINDING_ID [--scan-id SCAN_ID] [--json]
   {PROGRAM} config show
   {PROGRAM} capabilities
   {PROGRAM} version
@@ -1033,6 +1034,7 @@ MAP_HELP = f"""
 USAGE
   {PROGRAM} map show SCAN_ID [OPTIONS]
   {PROGRAM} map views
+  {PROGRAM} map explain FINDING_ID [--scan-id SCAN_ID] [--json]
   {PROGRAM} map explain FINDING_ID [--scan-id SCAN_ID] [--depth N] [--json]
   {PROGRAM} map explain FINDING_ID [--scan-id SCAN_ID] --output PATH
 
