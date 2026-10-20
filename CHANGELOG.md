@@ -80,4 +80,4 @@ the report a scan produces.
   120,000 edges, and the node/edge budgets remove what does not fit. Every
   removal is counted and reported.
 
-[0.1.0]: https://github.com/Understand-Dev/understand-mcp/releases/tag/v0.1.0
+[0.1.0]: https://github.com/understand-mcp/Understand/releases/tag/v0.1.0

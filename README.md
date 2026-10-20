@@ -12,8 +12,8 @@ A CLI and an MCP server over one engine.
 [![Tests](https://img.shields.io/badge/tests-533%20passed-brightgreen)](tests)
 [![SARIF](https://img.shields.io/badge/output-SARIF%202.1.0-orange)](docs/cli.md)
 
-[Report a bug](https://github.com/Understand-Dev/understand-mcp/issues) ·
-[Request a feature](https://github.com/Understand-Dev/understand-mcp/issues)
+[Report a bug](https://github.com/understand-mcp/Understand/issues) ·
+[Request a feature](https://github.com/understand-mcp/Understand/issues)
 
 </div>
 
@@ -256,8 +256,8 @@ pip install understand-mcp
 From source:
 
 ```bash
-git clone https://github.com/Understand-Dev/understand-mcp.git
-cd understand-mcp
+git clone https://github.com/understand-mcp/Understand.git
+cd Understand
 pip install .
 ```
 

@@ -52,10 +52,10 @@ understand = "understand.cli:run"
 understand-mcp-server = "understand.mcp.server:main"
 
 [project.urls]
-# The repository is published at Understand-Dev/understand-mcp.
-Homepage = "https://github.com/Understand-Dev/understand-mcp"
-Documentation = "https://github.com/Understand-Dev/understand-mcp/tree/main/docs"
-Issues = "https://github.com/Understand-Dev/understand-mcp/issues"
+# The repository is published at understand-mcp/Understand.
+Homepage = "https://github.com/understand-mcp/Understand"
+Documentation = "https://github.com/understand-mcp/Understand/tree/main/docs"
+Issues = "https://github.com/understand-mcp/Understand/issues"
 
 [tool.setuptools]
 package-dir = { "" = "src" }
