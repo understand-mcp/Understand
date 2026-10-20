@@ -9,7 +9,7 @@ A CLI and an MCP server over one engine.
 [![Python](https://img.shields.io/badge/python-3.10%2B-3776ab)](https://www.python.org/)
 [![MCP](https://img.shields.io/badge/MCP-2.0-blue)](https://modelcontextprotocol.io)
 [![License](https://img.shields.io/badge/license-MIT-8a5cf5)](LICENSE)
-[![Tests](https://img.shields.io/badge/tests-518%20passed-brightgreen)](tests)
+[![Tests](https://img.shields.io/badge/tests-533%20passed-brightgreen)](tests)
 [![SARIF](https://img.shields.io/badge/output-SARIF%202.1.0-orange)](docs/cli.md)
 
 [Report a bug](https://github.com/understand-mcp/understand/issues) ·
@@ -20,8 +20,8 @@ A CLI and an MCP server over one engine.
 ## Real run: microsoft/playwright
 
 This is the real output, not a demo fixture. Playwright is 3,024 files and
-480,000 lines of mostly TypeScript, which is close to the worst case for a
-lexical parser.
+480,000 lines of mostly TypeScript, which is close to the worst case for the
+call graph this tool builds.
 
 ```bash
 git clone --depth 1 https://github.com/microsoft/playwright.git
@@ -160,12 +160,12 @@ This is the honest state of the tool in October 2026:
 
 | | Python | TypeScript / JavaScript |
 | --- | --- | --- |
-| Parsing | `ast`, exact | lexical patterns, approximate |
+| Parsing | `ast`, exact | `tree-sitter`, exact |
 | Symbol resolution | name and scope | name only |
-| Usable for triage | yes | only after manual review |
-| False positive rate | low | high |
+| Usable for triage | yes | syntax yes, call graph after review |
+| False positive rate | low | low on syntax, high on unresolved calls |
 
-A number that matters more than the finding count: **132,153 call targets could
+TypeScript and JavaScript are parsed with the `tree-sitter` grammars from the `ts` extra (`pip install -e ".[ts]"`) and fall back to the lexical parser when those wheels are absent. Call targets are still resolved by name only, so the graph stays approximate. A number that matters more than the finding count: **132,153 call targets could
 not be resolved.** That number is printed in the report precisely so you know how
 much of the graph is guesswork. If a repository produces a high unresolved count,
 its `cross_module_trace` findings are close to meaningless.
@@ -176,7 +176,7 @@ results. `--fail-on high` on this repository exits 2, which is the tool telling
 you the truth about itself rather than telling you the code is broken.
 
 If you only care about Python, run `understand scan <repo> security --profile
-deep` and the numbers become usable. On TypeScript, treat the output as a
+deep` and the numbers become usable. On TypeScript the syntax is now exact, but call targets are resolved by name alone, so treat the output as a
 triage queue.
 
 ## What it does
@@ -742,7 +742,7 @@ python tools/validate_sarif.py
 ```
 
 ```text
-518 passed
+533 passed
 ```
 
 Linux, macOS and Windows, Python 3.10 to 3.13. Adding a check or a language:

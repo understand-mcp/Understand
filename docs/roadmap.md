@@ -72,11 +72,11 @@ Build the wheel, install it into a clean virtualenv, and confirm `understand --v
 
 ## High value
 
-### An exact parser for TypeScript and JavaScript
+### An exact parser for TypeScript and JavaScript — delivered
 
-The structural parser is the largest source of false positives and the reason JS/TS findings carry low confidence. `tree-sitter` grammars would move both languages from "approximate" to "exact" without changing any other layer — `parse_module()` dispatches on language already.
+Delivered. `parse_module()` already dispatched on language, so the change stayed inside the parser: TypeScript and JavaScript go to the `tree-sitter` grammars from the `ts` extra, and fall back to the lexical parser when those wheels are absent.
 
-This is the single highest-value change available. It converts an entire class of "the tool said so" into "the tool proved it".
+What remains is symbol resolution: call targets are still matched by name, so the call graph — not the parse — is now where low-confidence JS/TS findings come from.
 
 ### Precise data flow
 
