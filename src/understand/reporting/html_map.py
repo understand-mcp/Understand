@@ -281,7 +281,16 @@ _TEMPLATE = """<!DOCTYPE html>
   };
 
   var canvas = document.getElementById("map");
-  var ctx = canvas.getContext("2d");
+  // The 2D context is created lazily. transferControlToOffscreen() rejects a
+  // canvas that already has a rendering context, so the worker path has to be
+  // decided before the first getContext call.
+  var ctx = null;
+  var workerCapable = typeof canvas.transferControlToOffscreen === "function" &&
+    typeof Worker === "function";
+  var workerMode = false;      // worker owns the canvas and is painting
+  var workerPending = false;   // handshake in flight: main thread must not draw
+  var worker = null;
+  var rankedDirty = true;      // rankedVisible changed since the last postState
   var mini = document.getElementById("minimap");
   var mctx = mini.getContext("2d");
   var panel = document.getElementById("panel");
@@ -687,6 +696,7 @@ _TEMPLATE = """<!DOCTYPE html>
       if (keep[e.src] && keep[e.dst]) visibleEdges.push(e);
     }
     rankedVisible = rankEdges(visibleEdges);
+    rankedDirty = true;
     renderStatus();
     requestDraw();
   }
@@ -705,6 +715,7 @@ _TEMPLATE = """<!DOCTYPE html>
     viewH = Math.max(1, rectHeight());
     canvas.width = Math.round(viewW * dpr);
     canvas.height = Math.round(viewH * dpr);
+    if (!ctx) return;
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
   }
 
@@ -717,7 +728,10 @@ _TEMPLATE = """<!DOCTYPE html>
     if (interacting() || restoreStage >= 0) adaptUntil = performance.now() + 700;
     if (drawQueued) return;
     drawQueued = true;
-    window.requestAnimationFrame(function () { drawQueued = false; draw(); });
+    window.requestAnimationFrame(function () {
+      drawQueued = false;
+      if (workerMode) postState(); else draw();
+    });
   }
 
   function roundRect(g, x, y, w, h, r) {
@@ -776,6 +790,17 @@ _TEMPLATE = """<!DOCTYPE html>
   })();
 
   function draw() {
+    if (workerMode) return;
+    if (!ctx) {
+      // The handshake owns the first paint. Until it resolves, leaving the
+      // canvas transparent beats painting a frame the worker is about to
+      // replace, and beats a second getContext call that would make the
+      // transfer impossible.
+      if (workerPending) return;
+      ctx = canvas.getContext("2d");
+      if (!ctx) return;
+      resize();
+    }
     var startedAt = performance.now();
     // One bad frame must not be able to wedge the map. An exception thrown
     // between save() and restore() leaves the context's transform stack
@@ -1662,6 +1687,292 @@ var pendingZoom = 0;
     requestDraw();
   }, { passive: true });
 
+  // ------------------------------------------------------- worker renderer
+  // The freeze this removes is not slow drawing, it is drawing that cannot
+  // start. A frame costs a few milliseconds to rasterise, but it waits behind
+  // whatever the main thread is already doing - the camera maths and the
+  // pointer handlers that caused it - so the first frame of a zoom lands late
+  // and the map feels stuck. OffscreenCanvas moves the wait, not the work.
+  //
+  // The worker is assembled at run time from the functions below, so there is
+  // exactly one copy of the drawing code and it is the copy the classic path
+  // uses. The two renderers cannot drift apart, and the classic renderer stays
+  // as the fallback for every browser that will not cooperate.
+  var WORKER_CONST_NAMES = [
+    "PAD", "KIND_PRIORITY", "KIND_COLOR", "LABEL_MIN_PX",
+    "HIDE_EDGES_ON_MOVE_NODES", "HIDE_EDGES_ON_MOVE_EDGES",
+    "EDGE_BUDGET_MIN", "EDGE_BUDGET_PER_ZOOM", "STRAIGHT_EDGE_SCALE",
+    "INTERACT_EDGE_CAP", "SEVERITY_FILL", "SEVERITY_BORDER",
+    "SEVERITY_BORDER_PX", "SEVERITY_TEXT", "NODE_STROKE", "RESTORE_STEPS",
+    "LABEL_ALL_BELOW", "MOVE_NODE_KEEP", "NODE_KEEP_MIN", "LABEL_BUDGET",
+    "PERF_TARGET_MS", "PERF_MIN_QUALITY"
+  ];
+
+  var WORKER_FUNCS = [
+    visibleNodes, rankEdges, markLabels, buildGrid, budgetFor, restoreCeiling,
+    roundRect, diamondPath, anchorEnds, dashFor, strokeBucket, drawNode,
+    labelBudget, drawFrame
+  ];
+
+  // The worker is not wrapped in a function or made strict on purpose: a missed
+  // free variable then resolves the way it does on the main thread instead of
+  // throwing and blanking the map.
+  var WORKER_HEAD = [
+    "var ctx = null;",
+    "var cam = { scale: 1, tx: 0, ty: 0 };",
+    "var viewW = 1, viewH = 1, dpr = 1;",
+    "var NODES = [], EDGES = [], byId = {}, B = { x: 0, y: 0, w: 1, h: 1 };",
+    "var GRID = null, rankedVisible = [], visCount = 0;",
+    "var showLabels = false, showEdgeLabels = false;",
+    "var dragging = false, interf = false, restoreStage = -1;",
+    "var perf = { quality: 1, slow: 0, fast: 0, last: 0 };",
+    "var drawnEdgeCount = 0, drawnNodeCount = 0;",
+    "function interacting() { return dragging || interf; }",
+    "function drawMini() {}",
+    "function renderStatus() {}"
+  ].join("\\n");
+
+  var WORKER_TAIL = [
+    "self.onmessage = function (event) {",
+    "  var msg = event.data;",
+    "  if (!msg) return;",
+    "  if (msg.t === 'init') {",
+    "    ctx = msg.canvas.getContext('2d');",
+    "    if (!ctx) { self.postMessage({ t: 'initfail', reason: 'no-2d-context' }); return; }",
+    "    NODES = msg.nodes || [];",
+    "    EDGES = msg.edges || [];",
+    "    B = msg.b || B;",
+    "    cam = msg.cam || cam;",
+    "    for (var i = 0; i < NODES.length; i++) byId[NODES[i].id] = NODES[i];",
+    "    for (var c = 0; c < CONST_NAMES.length; c++) {",
+    "      self[CONST_NAMES[c]] = msg.c[CONST_NAMES[c]];",
+    "    }",
+    "    buildGrid();",
+    "    self.postMessage({ t: 'ready' });",
+    "    return;",
+    "  }",
+    "  if (msg.t === 'state') {",
+    "    cam = msg.cam || cam;",
+    "    dpr = msg.dpr || 1;",
+    "    showLabels = !!msg.showLabels;",
+    "    showEdgeLabels = !!msg.showEdgeLabels;",
+    "    dragging = !!msg.dragging;",
+    "    interf = !!msg.interf;",
+    "    perf.quality = typeof msg.quality === 'number' ? msg.quality : 1;",
+    "    restoreStage = typeof msg.restoreStage === 'number' ? msg.restoreStage : -1;",
+    "    if (msg.ranked) rankedVisible = msg.ranked;",
+    "    viewW = msg.w || 1;",
+    "    viewH = msg.h || 1;",
+    "    var cw = Math.max(1, Math.round(viewW * dpr));",
+    "    var ch = Math.max(1, Math.round(viewH * dpr));",
+    "    if (ctx.canvas.width !== cw) ctx.canvas.width = cw;",
+    "    if (ctx.canvas.height !== ch) ctx.canvas.height = ch;",
+    "    var startedAt = performance.now();",
+    "    try {",
+    "      drawFrame();",
+    "    } catch (err) {",
+    "      try { ctx.restore(); } catch (ignored) {}",
+    "      self.postMessage({",
+    "        t: 'frameerror',",
+    "        message: String(err && err.message || err)",
+    "      });",
+    "      return;",
+    "    }",
+    "    self.postMessage({",
+    "      t: 'frame',",
+    "      ms: performance.now() - startedAt,",
+    "      edges: drawnEdgeCount,",
+    "      nodes: drawnNodeCount",
+    "    });",
+    "  }",
+    "};",
+    "self.postMessage({ t: 'hello' });"
+  ].join("\\n");
+
+  function buildWorkerSource() {
+    var parts = [WORKER_HEAD];
+    parts.push("var CONST_NAMES = " + JSON.stringify(WORKER_CONST_NAMES) + ";");
+    for (var i = 0; i < WORKER_FUNCS.length; i++) parts.push(WORKER_FUNCS[i].toString());
+    parts.push(WORKER_TAIL);
+    return parts.join("\\n");
+  }
+
+  // Explicit mapping on purpose: these are vars inside this closure, not
+  // properties of window, so there is nothing to enumerate them from.
+  function workerConsts() {
+    return {
+      PAD: PAD,
+      KIND_PRIORITY: KIND_PRIORITY,
+      KIND_COLOR: KIND_COLOR,
+      LABEL_MIN_PX: LABEL_MIN_PX,
+      HIDE_EDGES_ON_MOVE_NODES: HIDE_EDGES_ON_MOVE_NODES,
+      HIDE_EDGES_ON_MOVE_EDGES: HIDE_EDGES_ON_MOVE_EDGES,
+      EDGE_BUDGET_MIN: EDGE_BUDGET_MIN,
+      EDGE_BUDGET_PER_ZOOM: EDGE_BUDGET_PER_ZOOM,
+      STRAIGHT_EDGE_SCALE: STRAIGHT_EDGE_SCALE,
+      INTERACT_EDGE_CAP: INTERACT_EDGE_CAP,
+      SEVERITY_FILL: SEVERITY_FILL,
+      SEVERITY_BORDER: SEVERITY_BORDER,
+      SEVERITY_BORDER_PX: SEVERITY_BORDER_PX,
+      SEVERITY_TEXT: SEVERITY_TEXT,
+      NODE_STROKE: NODE_STROKE,
+      RESTORE_STEPS: RESTORE_STEPS,
+      LABEL_ALL_BELOW: LABEL_ALL_BELOW,
+      MOVE_NODE_KEEP: MOVE_NODE_KEEP,
+      NODE_KEEP_MIN: NODE_KEEP_MIN,
+      LABEL_BUDGET: LABEL_BUDGET,
+      PERF_TARGET_MS: PERF_TARGET_MS,
+      PERF_MIN_QUALITY: PERF_MIN_QUALITY
+    };
+  }
+
+  var workerPhase = 0;   // 0 awaiting hello, 1 init posted, 2 ready, -1 failed
+  var workerTimer = 0;
+  var workerURL = null;
+
+  // Called once per frame in worker mode, so it carries only what the draw
+  // needs. The ranked list is the expensive part and it only changes with the
+  // filter, so it travels once and the flag clears only when it was sent.
+  function postState() {
+    if (!worker || workerPhase !== 2) return;
+    var ranked = rankedDirty ? rankedVisible : null;
+    worker.postMessage({
+      t: "state",
+      cam: { scale: cam.scale, tx: cam.tx, ty: cam.ty },
+      w: viewW,
+      h: viewH,
+      dpr: dpr,
+      showLabels: showLabels,
+      showEdgeLabels: showEdgeLabels,
+      dragging: dragging,
+      interf: interacting(),
+      quality: perf.quality,
+      restoreStage: restoreStage,
+      ranked: ranked
+    });
+    if (ranked) rankedDirty = false;
+  }
+
+  function onWorkerFrame(msg) {
+    var ms = msg.ms;
+    if (typeof ms === "number") measureFrame(ms);
+    mapStats.draws++;
+    mapStats.lastDrawMs = typeof ms === "number" ? ms : 0;
+    if (ms > PERF_TARGET_MS * 1.4) mapStats.slow++;
+    drawnEdgeCount = msg.edges || 0;
+    drawnNodeCount = msg.nodes || 0;
+    drawMini();
+    renderStatus();
+  }
+
+  function onWorkerMessage(event) {
+    var msg = event.data;
+    if (!msg) return;
+    if (msg.t === "hello") {
+      if (workerPhase !== 0) return;
+      var off;
+      try {
+        off = canvas.transferControlToOffscreen();
+      } catch (err) {
+        failWorker("transfer failed: " + (err && err.message || err));
+        return;
+      }
+      try {
+        worker.postMessage({
+          t: "init",
+          canvas: off,
+          nodes: NODES,
+          edges: EDGES,
+          b: B,
+          cam: { scale: cam.scale, tx: cam.tx, ty: cam.ty },
+          c: workerConsts()
+        }, [off]);
+      } catch (err) {
+        failWorker("init failed: " + (err && err.message || err));
+        return;
+      }
+      workerPhase = 1;
+      return;
+    }
+    if (msg.t === "ready") {
+      if (workerPhase === -1) return;
+      workerPhase = 2;
+      workerMode = true;
+      workerPending = false;
+      if (workerTimer) { window.clearTimeout(workerTimer); workerTimer = 0; }
+      if (workerURL) {
+        try { URL.revokeObjectURL(workerURL); } catch (ignored) {}
+        workerURL = null;
+      }
+      requestDraw();
+      return;
+    }
+    if (msg.t === "frame") {
+      if (workerPhase !== 2) return;
+      onWorkerFrame(msg);
+      return;
+    }
+    if (msg.t === "initfail") {
+      failWorker("worker init failed: " + (msg.reason || "unknown"));
+      return;
+    }
+    if (msg.t === "frameerror") {
+      failWorker("worker frame failed: " + (msg.message || "unknown"));
+      return;
+    }
+  }
+
+  function failWorker(reason) {
+    if (workerPhase === -1) return;
+    workerPhase = -1;
+    if (workerTimer) { window.clearTimeout(workerTimer); workerTimer = 0; }
+    if (worker) {
+      try { worker.terminate(); } catch (ignored) {}
+      worker = null;
+    }
+    if (workerURL) {
+      try { URL.revokeObjectURL(workerURL); } catch (ignored) {}
+      workerURL = null;
+    }
+    workerMode = false;
+    workerPending = false;
+    if (window.console && console.warn) {
+      console.warn("map: worker renderer unavailable (" + reason + "); using main thread");
+    }
+    requestDraw();
+  }
+
+  function startWorker() {
+    if (!workerCapable) return;
+    // Set before the first frame can run: the queued frame must return instead
+    // of taking a 2d context, because a canvas that has one can no longer be
+    // transferred.
+    workerPending = true;
+    var src;
+    try {
+      src = buildWorkerSource();
+    } catch (err) {
+      failWorker("source build failed: " + (err && err.message || err));
+      return;
+    }
+    try {
+      workerURL = URL.createObjectURL(new Blob([src], { type: "text/javascript" }));
+      worker = new Worker(workerURL);
+    } catch (err) {
+      failWorker("worker start failed: " + (err && err.message || err));
+      return;
+    }
+    worker.onmessage = onWorkerMessage;
+    worker.onerror = function (event) {
+      failWorker("worker error: " + (event && event.message ? event.message : "unknown"));
+    };
+    workerPhase = 0;
+    worker.postMessage({ t: "hello" });
+    workerTimer = window.setTimeout(function () {
+      failWorker("worker handshake timed out");
+    }, 2500);
+  }
+
   // ---------------------------------------------------------------- start
   document.getElementById("subtitle").textContent =
     (MODEL.meta && MODEL.meta.view ? MODEL.meta.view + " view of " : "") +
@@ -1672,6 +1983,7 @@ var pendingZoom = 0;
   renderPanel(null);
   renderHonestyFooter();
   applyFilter();
+  startWorker();
 })();
 </script>
 </body>
