@@ -94,6 +94,14 @@ IMPORT_PATTERNS: tuple[tuple[str, str], ...] = (
     ("javascript", r"^\s*export\s+.*?\s+from\s+['\"]([^'\"]+)['\"]"),
     ("javascript", r"require\(\s*['\"]([^'\"]+)['\"]\s*\)"),
     ("javascript", r"import\(\s*['\"]([^'\"]+)['\"]\s*\)"),
+    # TypeScript keeps the JavaScript module syntax verbatim, but the lookup is
+    # an exact language-name match, so without these entries every ``import``
+    # in a ``.ts`` file was invisible: file-level dependencies, the relations
+    # graph and architecture analysis all saw a repository of isolated files.
+    ("typescript", r"^\s*import\s+(?:[\w*{}\s,]+\s+from\s+)?['\"]([^'\"]+)['\"]"),
+    ("typescript", r"^\s*export\s+.*?\s+from\s+['\"]([^'\"]+)['\"]"),
+    ("typescript", r"require\(\s*['\"]([^'\"]+)['\"]\s*\)"),
+    ("typescript", r"import\(\s*['\"]([^'\"]+)['\"]\s*\)"),
     ("go", r"^\s*import\s+(?:\w+\s+)?\"([^\"]+)\""),
     ("go", r"^\s*(?:\"([^\"]+)\")"),
     ("rust", r"^\s*use\s+([A-Za-z_][\w:{}, *]*)"),

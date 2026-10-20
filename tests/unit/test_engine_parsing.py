@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import pytest
 
+from understand.engine import symbol_index as symbol_index_module
 from understand.engine.call_graph import build_call_graph
 from understand.engine.data_flow import analyze_data_flow
 from understand.engine.graph_snapshot import empty_snapshot, snapshot_graph
@@ -248,3 +249,149 @@ def test_language_keywords_are_not_calls_but_ordinary_callables_are() -> None:
     assert "require" in calls and "range" in calls and "work" in calls
     assert is_not_a_call("async") and is_not_a_call("super") and is_not_a_call("void")
     assert not is_not_a_call("go") and not is_not_a_call("map") and not is_not_a_call("filter")
+
+
+TS_SOURCE = """
+import { Base } from "./base";
+
+@dec
+export default class Widget extends Base implements Store, Other {
+  handler(input) {
+    return helper(input);
+  }
+
+  static make() {
+    return new Widget();
+  }
+
+  constructor() {
+    super();
+  }
+
+  get size() {
+    return 1;
+  }
+
+  set size(value) {
+    this._size = value;
+  }
+
+  _hidden() {
+    return 0;
+  }
+
+  count = 4;
+}
+
+class Shape extends Base {
+  area() {
+    return 1;
+  }
+}
+
+interface Store {
+  get(key: string): string;
+}
+
+enum Kind {
+  A,
+  B,
+}
+
+type Alias = string;
+
+function outer(input) {
+  return helper(input);
+}
+
+const arrow = (x) => {
+  return inner(x);
+};
+"""
+
+
+needs_grammar = pytest.mark.skipif(
+    not symbol_index_module._TREE_SITTER_OK,
+    reason="the optional tree-sitter grammar is not installed",
+)
+
+
+@needs_grammar
+def test_parse_typescript_tree_models_class_members_and_heritage() -> None:
+    module = parse_module("src/app.ts", TS_SOURCE, "typescript")
+    assert module.support is SupportLevel.FULL
+    assert not module.parse_error
+
+    by_name = {symbol.name: symbol for symbol in module.symbols}
+    widget = by_name["Widget"]
+    assert widget.kind == "class"
+    # `implements` names are flattened into `bases` on purpose: downstream
+    # stages only ask "what does this type depend on", and an interface is a
+    # dependency exactly like a superclass.
+    assert widget.bases == ("Base", "Store", "Other")
+    assert widget.exported is True
+    assert widget.decorators == ("@dec",)
+
+    # Members are visible, which the lexical fallback cannot do.
+    assert by_name["handler"].kind == "method"
+    assert by_name["handler"].parent == widget.id
+    assert by_name["make"].kind == "method"
+    assert by_name["constructor"].kind == "method"
+    assert by_name["handler"].start_line > widget.start_line
+
+    # `get size` and `set size` are one property, not two symbols.
+    assert [s.name for s in module.symbols].count("size") == 1
+    size = by_name["size"]
+    assert size.end_line > size.start_line
+
+    # An accessor-less field is not a symbol, but a private method is one:
+    # privacy is a modifier, not a reason to hide a real call target.
+    assert "count" not in by_name
+    assert by_name["_hidden"].kind == "method"
+    assert by_name["_hidden"].parent == widget.id
+    assert by_name["_hidden"].exported is False
+
+    # Interfaces and enums are types, so they carry the type kind and heritage.
+    assert by_name["Shape"].bases == ("Base",)
+    assert by_name["Store"].kind == "class"
+    assert by_name["Kind"].kind == "class"
+    # A type alias names no runtime entity.
+    assert "Alias" not in by_name
+
+    assert by_name["outer"].kind == "function"
+    assert by_name["arrow"].kind == "function"
+    assert module.symbols[-1].kind == "module"
+
+    calls = {c.callee_name for c in module.calls}
+    assert "helper" in calls
+    assert "inner" in calls
+    assert "super" not in calls
+
+
+@needs_grammar
+def test_parse_typescript_tree_keeps_imports_and_literals() -> None:
+    module = parse_module("src/app.ts", TS_SOURCE, "typescript")
+    # The tuple is (normalised module path, line, raw statement).
+    assert any(spec.rstrip("/").endswith("base") for spec, _line, _raw in module.imports)
+    assert any("Base" in raw for _spec, _line, raw in module.imports)
+    assert len(module.lines) == len(TS_SOURCE.splitlines())
+
+
+def test_parse_typescript_falls_back_when_grammar_unavailable(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Without the extra the engine degrades, it does not fail.
+
+    The fallback is the lexical parser that shipped first, so this test pins
+    the contract the optional dependency must not break: same entry point,
+    still usable, still resolving imports and calls, just without nesting.
+    """
+    monkeypatch.setattr(symbol_index_module, "_TREE_SITTER_OK", False)
+    module = parse_module("src/app.ts", TS_SOURCE, "typescript")
+    assert module.support is not SupportLevel.FULL
+    assert module.is_usable
+    # The lexical parser still finds the members, it just cannot say what they
+    # are: nothing is classified as a method, so no call graph hangs off a class.
+    assert "handler" in {s.name for s in module.symbols}
+    assert {s.name: s for s in module.symbols}["handler"].kind == "function"
+    assert all(s.kind != "method" for s in module.symbols)
+    assert any("Base" in raw for _spec, _line, raw in module.imports)
+    assert "helper" in {c.callee_name for c in module.calls}

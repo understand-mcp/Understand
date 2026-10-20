@@ -35,6 +35,26 @@ from understand.models import CallSite, SupportLevel, Symbol
 
 log = get_logger("engine.symbols")
 
+try:  # optional extra: pip install "understand-mcp[ts]"
+    import tree_sitter as _ts
+    import tree_sitter_typescript as _ts_ts
+except Exception:  # pragma: no cover - depends on which extras are installed
+    _ts = None
+    _ts_ts = None
+
+#: True when both the runtime and the TypeScript grammars are importable.
+_TREE_SITTER_OK = _ts is not None and _ts_ts is not None
+
+#: Grammar factory per language. The TypeScript grammar also parses plain
+#: JavaScript without JSX; the TSX grammar covers JSX.
+_TS_GRAMMAR_FACTORIES = {
+    "typescript": "language_typescript",
+    "tsx": "language_tsx",
+    "javascript": "language_typescript",
+    "jsx": "language_tsx",
+}
+_TS_LANGUAGES = frozenset(_TS_GRAMMAR_FACTORIES)
+
 MAX_LINE_CHARS = 4000
 _PY_AST_KEYWORDS = frozenset({
     "def", "class", "async", "lambda", "return", "yield", "await", "import",
@@ -420,6 +440,382 @@ def _bases_from_line(line: str) -> tuple[str, ...]:
     return tuple(x.strip().split("<")[0] for x in inner.split(",") if x.strip())
 
 
+_TS_IDENT_RE = re.compile(r"^[A-Za-z_$][\w$]*$")
+
+#: Nodes whose children are worth visiting even though the node itself declares
+#: nothing. Everything else stops the walk, which keeps object literals and
+#: expressions from turning call arguments into symbols.
+_TS_RECURSE = frozenset({
+    "program",
+    "class_body",
+    "interface_body",
+    "enum_body",
+    "statement_block",
+    "lexical_declaration",
+    "variable_declaration",
+    "ambient_declaration",
+    "internal_module",
+    "module",
+})
+
+_TS_SKIP = frozenset({
+    "decorator",
+    "comment",
+    "import_statement",
+    "type_alias_declaration",
+})
+
+_TS_FUNCTION_VALUES = frozenset({
+    "arrow_function",
+    "function_expression",
+    "function",
+    "generator_function",
+})
+
+_TS_HERITAGE_NODES = frozenset({
+    "class_heritage",
+    "extends_type_clause",
+    "extends_clause",
+    "implements_clause",
+})
+
+_TS_BASE_NAMES = frozenset({
+    "type_identifier",
+    "identifier",
+    "nested_type_identifier",
+    "generic_type",
+    "member_expression",
+})
+
+
+def _ts_text(node: object) -> str:
+    if node is None:
+        return ""
+    text = getattr(node, "text", b"")
+    if isinstance(text, bytes):
+        return text.decode("utf-8", "replace")
+    return str(text)
+
+
+def _ts_collect_bases(node: object, found: list[str]) -> None:
+    for child in node.named_children:
+        if child.type in _TS_BASE_NAMES:
+            name = _ts_text(child).split("<", 1)[0].strip()
+            if name:
+                found.append(name)
+        elif child.type in _TS_HERITAGE_NODES:
+            _ts_collect_bases(child, found)
+
+
+def _ts_bases(node: object) -> tuple[str, ...]:
+    found: list[str] = []
+    for child in node.named_children:
+        # The declared name is itself a direct ``type_identifier``, so only the
+        # dedicated heritage nodes may contribute bases.
+        if child.type in _TS_HERITAGE_NODES:
+            _ts_collect_bases(child, found)
+    return tuple(dict.fromkeys(found))
+
+
+class _TsWalker:
+    """Collect symbols, scopes and heritage from a tree-sitter tree."""
+
+    def __init__(
+        self,
+        path: str,
+        language: str,
+        lines: list[str],
+        comments: dict[int, str],
+        sanitized: list[str],
+    ) -> None:
+        self.path = path
+        self.language = language
+        self.lines = lines
+        self.comments = comments
+        self.sanitized = sanitized
+        self.symbols: list[Symbol] = []
+        self.scopes: list[tuple[int, int, str, str]] = []
+        self._seen: dict[str, Symbol] = {}
+        self._qual: dict[str, str] = {}
+
+    def run(self, root: object) -> None:
+        self._visit(root, None, "", None, ())
+
+    def scope_for(self, lineno: int) -> str:
+        best = make_symbol_id(self.path, "<module>")
+        best_span = 10**9
+        for start, end, sid, _qual in self.scopes:
+            if start <= lineno <= end:
+                span = end - start
+                if span < best_span:
+                    best, best_span = sid, span
+        return best
+
+    def _visit(
+        self,
+        node: object,
+        parent: str | None,
+        prefix: str,
+        exported: bool | None,
+        decorators: tuple[str, ...],
+    ) -> None:
+        kind = node.type
+        if kind in _TS_SKIP:
+            return
+        handler = getattr(self, f"_on_{kind}", None)
+        if handler is not None:
+            handler(node, parent, prefix, exported, decorators)
+            return
+        if kind in _TS_RECURSE:
+            self._visit_children(node, parent, prefix, exported, decorators)
+
+    def _visit_children(
+        self,
+        node: object,
+        parent: str | None,
+        prefix: str,
+        exported: bool | None,
+        decorators: tuple[str, ...] = (),
+    ) -> None:
+        for child in node.named_children:
+            self._visit(child, parent, prefix, exported, decorators)
+
+    def _emit(
+        self,
+        node: object,
+        name: str,
+        kind: str,
+        parent: str | None,
+        prefix: str,
+        exported: bool | None,
+        decorators: tuple[str, ...] = (),
+        bases: tuple[str, ...] = (),
+    ) -> Symbol | None:
+        name = (name or "").strip()
+        if not name:
+            return None
+        start = node.start_point.row + 1
+        end = max(start, node.end_point.row + 1)
+        if exported is None:
+            exported = not name.startswith("_")
+        qualified = f"{prefix}{name}"
+        sid = make_symbol_id(self.path, qualified)
+        existing = self._seen.get(sid)
+        if existing is not None:
+            # ``get size`` and ``set size`` are one member, not two.
+            existing.end_line = max(existing.end_line, end)
+            return existing
+        symbol = Symbol(
+            id=sid,
+            name=name,
+            kind=kind,
+            file=self.path,
+            language=self.language,
+            parent=parent,
+            start_line=start,
+            end_line=end,
+            signature=_ts_text(node).split("\n", 1)[0].strip()[:200],
+            docstring=_doc_above(self.sanitized, self.comments, start),
+            decorators=tuple(decorators),
+            bases=tuple(bases),
+            exported=exported,
+        )
+        self._seen[sid] = symbol
+        self._qual[sid] = qualified
+        self.symbols.append(symbol)
+        self.scopes.append((start, end, sid, qualified))
+        return symbol
+
+    def _decl_decorators(self, node: object, inherited: tuple[str, ...]) -> tuple[str, ...]:
+        found = list(inherited)
+        for child in node.named_children:
+            if child.type == "decorator":
+                text = _ts_text(child).strip()
+                if text:
+                    found.append(text)
+        return tuple(found)
+
+    def _recurse_body(self, node: object, symbol: Symbol) -> None:
+        prefix = self._qual.get(symbol.id, symbol.name) + "."
+        body = node.child_by_field_name("body")
+        if body is None:
+            self._visit_children(node, symbol.id, prefix, None)
+        else:
+            self._visit(body, symbol.id, prefix, None, ())
+
+    def _on_export_statement(
+        self,
+        node: object,
+        parent: str | None,
+        prefix: str,
+        _exported: bool | None,
+        decorators: tuple[str, ...],
+    ) -> None:
+        merged = self._decl_decorators(node, decorators)
+        self._visit_children(node, parent, prefix, True, merged)
+
+    def _declare_type(
+        self,
+        node: object,
+        parent: str | None,
+        prefix: str,
+        exported: bool | None,
+        decorators: tuple[str, ...],
+    ) -> None:
+        merged = self._decl_decorators(node, decorators)
+        name = _ts_text(node.child_by_field_name("name"))
+        # Interfaces and enums are recorded as classes on purpose: every
+        # downstream consumer filters on ``{"function", "method", "class"}``,
+        # so a separate kind would silently disappear from those views.
+        symbol = self._emit(node, name, "class", parent, prefix, exported, merged, _ts_bases(node))
+        if symbol is None:
+            return
+        self._recurse_body(node, symbol)
+
+    _on_class_declaration = _declare_type
+    _on_abstract_class_declaration = _declare_type
+    _on_class_expression = _declare_type
+    _on_interface_declaration = _declare_type
+    _on_enum_declaration = _declare_type
+
+    def _declare_function(
+        self,
+        node: object,
+        parent: str | None,
+        prefix: str,
+        exported: bool | None,
+        decorators: tuple[str, ...],
+    ) -> None:
+        merged = self._decl_decorators(node, decorators)
+        name = _ts_text(node.child_by_field_name("name"))
+        symbol = self._emit(node, name, "function", parent, prefix, exported, merged)
+        if symbol is None:
+            return
+        self._recurse_body(node, symbol)
+
+    _on_function_declaration = _declare_function
+    _on_generator_function_declaration = _declare_function
+    _on_function_signature = _declare_function
+
+    def _on_method_definition(
+        self,
+        node: object,
+        parent: str | None,
+        prefix: str,
+        exported: bool | None,
+        decorators: tuple[str, ...],
+    ) -> None:
+        merged = self._decl_decorators(node, decorators)
+        name = _ts_text(node.child_by_field_name("name"))
+        symbol = self._emit(node, name, "method", parent, prefix, exported, merged)
+        if symbol is None:
+            return
+        self._recurse_body(node, symbol)
+
+    def _on_method_signature(
+        self,
+        node: object,
+        parent: str | None,
+        prefix: str,
+        exported: bool | None,
+        decorators: tuple[str, ...],
+    ) -> None:
+        name = _ts_text(node.child_by_field_name("name"))
+        self._emit(node, name, "method", parent, prefix, exported, decorators)
+
+    def _on_public_field_definition(
+        self,
+        node: object,
+        parent: str | None,
+        prefix: str,
+        exported: bool | None,
+        decorators: tuple[str, ...],
+    ) -> None:
+        value = node.child_by_field_name("value")
+        if value is None or value.type not in _TS_FUNCTION_VALUES:
+            return
+        merged = self._decl_decorators(node, decorators)
+        name = _ts_text(node.child_by_field_name("name"))
+        self._emit(node, name, "method", parent, prefix, exported, merged)
+
+    def _declarators(
+        self,
+        node: object,
+        parent: str | None,
+        prefix: str,
+        exported: bool | None,
+        decorators: tuple[str, ...] = (),
+    ) -> None:
+        for child in node.named_children:
+            if child.type != "variable_declarator":
+                continue
+            value = child.child_by_field_name("value")
+            if value is None or value.type not in _TS_FUNCTION_VALUES:
+                continue
+            name = _ts_text(child.child_by_field_name("name")).strip()
+            # Destructuring patterns are not names we can key a symbol on.
+            if not _TS_IDENT_RE.match(name):
+                continue
+            self._emit(child, name, "function", parent, prefix, exported)
+
+    _on_lexical_declaration = _declarators
+    _on_variable_declaration = _declarators
+
+
+def parse_typescript_tree(path: str, text: str, language: str) -> ParsedModule:
+    """Parse TypeScript/JavaScript with tree-sitter, falling back to PARTIAL.
+
+    The structural parse always runs first: it supplies imports, literals,
+    comments and the sanitized lines, so the two paths describe the same file
+    the same way. Anything unexpected (missing extra, grammar mismatch, syntax
+    error) returns that structural module untouched.
+    """
+
+    fallback = parse_structural(path, text, language)
+    factory = _TS_GRAMMAR_FACTORIES.get(language)
+    if not _TREE_SITTER_OK or factory is None:
+        return fallback
+    try:
+        grammar = getattr(_ts_ts, factory)()
+        parser = _ts.Parser(_ts.Language(grammar))
+        tree = parser.parse(text.encode("utf-8"))
+        root = tree.root_node
+    except Exception as exc:  # pragma: no cover - runtime/grammar mismatch
+        log.debug("tree-sitter unavailable for %s: %s", path, exc)
+        return fallback
+    if root.has_error:
+        return fallback
+
+    lines = fallback.lines
+    comments = fallback.comments
+    sanitized = [fallback.dirty_lines.get(i, "") for i in range(1, len(lines) + 1)]
+
+    module = ParsedModule(path=path, language=language, support=SupportLevel.FULL, lines=lines)
+    module.imports = list(fallback.imports)
+    module.comments = comments
+    module.dirty_lines = fallback.dirty_lines
+    module.literals = fallback.literals
+
+    walker = _TsWalker(path, language, lines, comments, sanitized)
+    walker.run(root)
+
+    module.symbols = walker.symbols
+    module.symbols.append(
+        Symbol(
+            id=make_symbol_id(path, "<module>"),
+            name=PurePosixPath(path).name,
+            kind="module",
+            file=path,
+            language=language,
+            start_line=1,
+            end_line=max(1, len(lines)),
+            exported=True,
+        )
+    )
+    module.calls = extract_calls(sanitized, path, walker.scope_for)
+    return module
+
+
 def parse_module(path: str, text: str, language: str) -> ParsedModule:
     if language == "python":
         return parse_python(path, text)
@@ -427,6 +823,8 @@ def parse_module(path: str, text: str, language: str) -> ParsedModule:
         return _parse_structured_data(path, text, language)
     if language in {"yaml", "sql", "markdown", "text", "hcl"}:
         return _text_module(path, text, language)
+    if language in _TS_LANGUAGES and _TREE_SITTER_OK:
+        return parse_typescript_tree(path, text, language)
     return parse_structural(path, text, language)
 
 

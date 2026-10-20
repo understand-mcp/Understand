@@ -36,6 +36,14 @@ dev = [
   "mypy>=1.10",
   "build>=1.2",
 ]
+# Optional grammar for exact TypeScript/JavaScript structure. Without it the
+# engine falls back to the lexical parser, which never fails but cannot see
+# nesting such as class members or interface heritage. Install with
+# `pip install "understand-mcp[ts]"`.
+ts = [
+  "tree-sitter>=0.23",
+  "tree-sitter-typescript>=0.23",
+]
 
 [project.scripts]
 understand = "understand.cli:run"
