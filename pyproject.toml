@@ -53,11 +53,10 @@ understand = "understand.cli:run"
 understand-mcp-server = "understand.mcp.server:main"
 
 [project.urls]
-# The repository is published at understand-mcp/understand. These resolve once the
-# repository is pushed; before that they necessarily 404, which is expected.
-Homepage = "https://github.com/understand-mcp/understand"
-Documentation = "https://github.com/understand-mcp/understand/tree/main/docs"
-Issues = "https://github.com/understand-mcp/understand/issues"
+# The repository is published at Understand-Dev/understand-mcp.
+Homepage = "https://github.com/Understand-Dev/understand-mcp"
+Documentation = "https://github.com/Understand-Dev/understand-mcp/tree/main/docs"
+Issues = "https://github.com/Understand-Dev/understand-mcp/issues"
 
 [tool.setuptools]
 package-dir = { "" = "src" }

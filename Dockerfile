@@ -54,7 +54,7 @@ FROM python:3.12-slim AS runtime
 
 LABEL org.opencontainers.image.title="UNDERSTAND" \
       org.opencontainers.image.description="Repository-wide code intelligence, security and defect analysis engine with a CLI and MCP server" \
-      org.opencontainers.image.source="https://github.com/understand-mcp/understand" \
+      org.opencontainers.image.source="https://github.com/Understand-Dev/understand-mcp" \
       org.opencontainers.image.licenses="MIT" \
       org.opencontainers.image.version="0.1.0"
 
