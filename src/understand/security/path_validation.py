@@ -102,11 +102,10 @@ def assert_local_source(path: str | Path, *, allowed_roots: tuple[str, ...] = ()
         raise InvalidSourceError(f"cannot resolve local path {path}: {exc}") from exc
     if not resolved.is_dir():
         raise InvalidSourceError(f"expected a directory: {path}")
-    if os.name == "nt":  # drive-root guard
-        drive, _ = os.path.splitdrive(str(resolved))
-        anchor = resolved.parent if drive else resolved
-        if str(anchor) == str(resolved):
-            raise AccessDeniedError(f"refusing to scan a filesystem root: {resolved}")
+    # A filesystem root has itself as its parent: "/" on POSIX, "C:\" or a UNC
+    # share on Windows. Scanning one is unbounded, so it is refused outright.
+    if resolved.parent == resolved:
+        raise AccessDeniedError(f"refusing to scan a filesystem root: {resolved}")
     if allowed_roots:
         roots = [Path(os.path.realpath(os.path.expanduser(r))) for r in allowed_roots]
         for r in roots:

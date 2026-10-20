@@ -77,6 +77,10 @@ COPY --from=build /usr/local/lib/python3.12/site-packages /usr/local/lib/python3
 COPY --from=build /usr/local/bin/understand /usr/local/bin/understand
 COPY --from=build /usr/local/bin/understand-mcp-server /usr/local/bin/understand-mcp-server
 
+# The health check lives in a file: a Dockerfile cannot hold a heredoc inside a
+# HEALTHCHECK instruction, and a script keeps the check readable.
+COPY tools/healthcheck.py /usr/local/bin/healthcheck.py
+
 # The scan store lives on a volume so results survive container replacement.
 # A world-writable /data owned by the unprivileged user avoids running as root.
 RUN mkdir -p /data && chown understand:understand /data
@@ -91,18 +95,6 @@ EXPOSE 8000
 # intentionally tolerant: a stdio deployment must not be reported unhealthy just
 # because it has no HTTP port.
 HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
-    CMD python - <<'PY' || exit 1
-import os, sys, urllib.request
-host = os.environ.get("UNDERSTAND_MCP_HOST", "0.0.0.0")
-port = os.environ.get("UNDERSTAND_MCP_PORT", "8000")
-if host in ("0.0.0.0", "::"):
-    host = "127.0.0.1"
-try:
-    with urllib.request.urlopen(f"http://{host}:{port}/mcp", timeout=4) as response:
-        sys.exit(0 if response.status < 500 else 1)
-except Exception:
-    # No HTTP listener (stdio mode) is a valid configuration, not a failure.
-    sys.exit(0)
-PY
+    CMD ["python", "/usr/local/bin/healthcheck.py"]
 
 ENTRYPOINT ["understand-mcp-server"]

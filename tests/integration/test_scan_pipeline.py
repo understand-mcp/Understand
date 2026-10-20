@@ -168,8 +168,10 @@ def test_cancel_unknown_scan_returns_false(config) -> None:
 
 
 def test_timeout_raises_resource_limit(risky_repo: str, config) -> None:
-    limits = ResourceLimits(max_seconds=0.01)
-    with ScanService(config) as service, pytest.raises((ResourceLimitExceeded, Exception)):
+    # A budget this small cannot be met even by a trivial scan, so the first
+    # stage checkpoint always trips the limit on a fast machine too.
+    limits = ResourceLimits(max_seconds=1e-6)
+    with ScanService(config) as service, pytest.raises(ResourceLimitExceeded):
         service.run_sync(_request(risky_repo, limits=limits), timeout=0.2)
 
 
