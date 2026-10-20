@@ -51,7 +51,7 @@ on: [push, pull_request]
 jobs:
   test:
     strategy:
-      matrix: { os: [ubuntu-latest, macos-latest, windows-latest], python: ["3.10", "3.11", "3.12", "3.13"] }
+      matrix: { os: [ubuntu-latest, macos-latest, windows-latest], python: ["3.11", "3.12", "3.13"] }
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v4

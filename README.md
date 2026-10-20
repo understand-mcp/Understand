@@ -6,7 +6,7 @@ Repository-wide code intelligence, security and defect analysis.
 
 A CLI and an MCP server over one engine.
 
-[![Python](https://img.shields.io/badge/python-3.10%2B-3776ab)](https://www.python.org/)
+[![Python](https://img.shields.io/badge/python-3.11%2B-3776ab)](https://www.python.org/)
 [![MCP](https://img.shields.io/badge/MCP-2.0-blue)](https://modelcontextprotocol.io)
 [![License](https://img.shields.io/badge/license-MIT-8a5cf5)](LICENSE)
 [![Tests](https://img.shields.io/badge/tests-533%20passed-brightgreen)](tests)
@@ -261,7 +261,7 @@ cd understand-mcp
 pip install .
 ```
 
-Python 3.10 or newer. `git` is only needed for remote repositories.
+Python 3.11 or newer. `git` is only needed for remote repositories.
 
 ## Commands
 
@@ -745,7 +745,7 @@ python tools/validate_sarif.py
 533 passed
 ```
 
-Linux, macOS and Windows, Python 3.10 to 3.13. Adding a check or a language:
+Linux, macOS and Windows, Python 3.11 to 3.13. Adding a check or a language:
 [docs/extending.md](docs/extending.md).
 
 ## Deploying

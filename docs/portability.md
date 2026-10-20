@@ -10,12 +10,12 @@ than believed.
 
 | Platform | Versions | Notes |
 | --- | --- | --- |
-| Linux | 3.10+ | Primary CI target. The container image is `python:3.12-slim`. |
-| macOS | 3.10+ | Intel and Apple Silicon. No native extensions are compiled. |
-| Windows | 3.10+ | Where most path-handling subtlety lives; see below. |
+| Linux | 3.11+ | Primary CI target. The container image is `python:3.12-slim`. |
+| macOS | 3.11+ | Intel and Apple Silicon. No native extensions are compiled. |
+| Windows | 3.11+ | Where most path-handling subtlety lives; see below. |
 
-Python 3.10 is the floor because the code uses `X \| Y` union syntax at runtime in
-annotations and `match`-free control flow only.
+Python 3.11 is the floor because the code uses `enum.StrEnum` and `tomllib`,
+both of which arrived in 3.11.
 
 There are **no compiled dependencies**. `mcp` and `pydantic` (plus `pydantic-core`,
 which ships prebuilt wheels) are the only runtime requirements, so there is no
@@ -97,7 +97,7 @@ understand-mcp-server
 
 ### macOS
 
-Identical; substitute `python3.11` (or any 3.10+) if that is what you have.
+Identical; substitute `python3.11` (or any 3.11+) if that is what you have.
 If `git` is managed by Homebrew or Xcode CLT, it is already present.
 
 ### Windows
