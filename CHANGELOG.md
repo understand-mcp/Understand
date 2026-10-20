@@ -27,6 +27,9 @@ statement of how strong the evidence is for each one.
   later failure produces a `partial` report with a coded warning instead of
   silently reporting less work as complete.
 - Five checks: security, bugs, architecture, dependencies, reliability.
+- TypeScript and JavaScript are parsed with the `tree-sitter` grammars from the
+  `ts` extra, so their syntax is exact rather than lexical. The lexical
+  parser remains as a fallback when those wheels are not installed.
 - Six `verification_status` values, and a findings model that states what the
   evidence does *not* prove.
 
@@ -37,6 +40,9 @@ statement of how strong the evidence is for each one.
   viewport culling, level-of-detail rendering, and a renderer that measures its
   own frames and thins detail to hold the frame rate — so it needs no particular
   GPU and runs on a machine with no graphics card.
+- The map is drawn on an `OffscreenCanvas` worker, so panning and zooming do
+  not block the page thread; browsers without `Worker` fall back to the
+  in-page renderer.
 - Clicking any node shows its real source, every finding that landed on it in
   full, and a dedicated "what this analysis did not prove" block.
 - `understand map explain <finding_id>` prints the causal chain as prose — what
@@ -67,9 +73,13 @@ the report a scan produces.
   could not be bound to a definition. Most are the standard library, third-party
   packages and runtime-chosen names; static analysis cannot resolve them
   without full module and type resolution, so this number cannot reach zero.
-- **TypeScript and JavaScript parsing is lexical**, not syntactic. Python is
-  parsed with `ast` and is exact. Expect a higher false-positive rate on
-  TypeScript and verify any finding before acting on it.
+- **TypeScript and JavaScript call targets are resolved by name only.** The
+  syntax itself is exact — Python is parsed with `ast`, TypeScript and
+  JavaScript with the `tree-sitter` grammars from the `ts` extra
+  (`pip install -e ".[ts]"`), and fall back to the lexical parser when those
+  wheels are absent. But a call is bound to a definition by name, so the
+  call graph stays approximate on those two languages. Verify any finding
+  before acting on it.
 - **Dependency analysis is inventory, not vulnerability scanning.** It reports
   `not_performed` rather than implying a clean bill of health.
 - **Findings are heuristic.** A finding is a static result. `confidence` and
