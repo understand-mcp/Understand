@@ -2492,7 +2492,7 @@ def _assign_coordinates(
     """Turn layer membership into pixel coordinates, then de-overlap."""
 
     lane_y: dict[int, float] = {}
-    for depth, items in buckets.items():
+    for depth in buckets:
         lane_y[depth] = float(depth) * LAYER_GAP
 
     for _depth, items in buckets.items():

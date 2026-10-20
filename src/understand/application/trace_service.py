@@ -263,9 +263,12 @@ class TraceService:
             if len(selected) >= max_flows:
                 break
 
-        if finding_id and not selected:
-            if not any(f.finding_id == finding_id or f.rule_id == finding_id for f in self.report.findings):
-                raise FindingNotFound(f"unknown finding id {finding_id!r}", detail={"finding_id": finding_id})
+        if (
+            finding_id
+            and not selected
+            and not any(f.finding_id == finding_id or f.rule_id == finding_id for f in self.report.findings)
+        ):
+            raise FindingNotFound(f"unknown finding id {finding_id!r}", detail={"finding_id": finding_id})
 
         return {
             "scan_id": self.report.scan_id,

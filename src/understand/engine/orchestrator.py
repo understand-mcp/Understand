@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import contextlib
 import threading
 import time
 from collections.abc import Callable
@@ -407,10 +408,8 @@ class _StageCtx:
         self.t0 = time.monotonic()
         self.rec.status = StageStatus.RUNNING
         if self.orch.on_stage is not None:
-            try:
+            with contextlib.suppress(Exception):  # pragma: no cover - progress hook must never break a scan
                 self.orch.on_stage(self.rec.name)
-            except Exception:  # pragma: no cover - progress hook must never break a scan
-                pass
         return self
 
     def start(self) -> None:
