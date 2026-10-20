@@ -1,0 +1,44 @@
+name: publish to PyPI
+
+# Publishing runs from CI so that the upload carries a PEP 740 attestation
+# (SLSA provenance). PyPI only accepts attestations signed by a Trusted
+# Publisher identity, so the upload has to happen inside GitHub Actions where
+# the OIDC token is available. A local `uv publish --token` upload works, but
+# it can never carry provenance.
+#
+# To enable it, add a pending publisher for this project on PyPI:
+#   owner: understand-mcp
+#   repository: Understand
+#   workflow name: publish.yml
+#   environment: (leave empty, this workflow declares no environment)
+
+on:
+  release:
+    types: [published]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  id-token: write
+
+concurrency:
+  group: publish-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  publish:
+    name: publish to PyPI
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
+
+      - name: Build the distributions
+        run: uv build --out-dir dist
+
+      - name: Publish to PyPI
+        run: uv publish --trusted-publishing always dist/*
