@@ -4,6 +4,14 @@ All notable changes to UNDERSTAND are recorded here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and this project uses
 [semantic versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.1.2] — signed provenance on PyPI
+
+### Changed
+- The PyPI upload now carries a PEP 740 attestation. `uv publish` only uploads
+  attestations that already exist, so the publish workflow now generates them
+  first from the workflow's OIDC identity. Every release on PyPI can now be
+  traced back to the commit and the workflow that built it.
+
 ## [0.1.1] — the distributable bundle
 
 ### Added
@@ -106,5 +114,6 @@ the report a scan produces.
   120,000 edges, and the node/edge budgets remove what does not fit. Every
   removal is counted and reported.
 
+[0.1.2]: https://github.com/understand-mcp/Understand/releases/tag/v0.1.2
 [0.1.1]: https://github.com/understand-mcp/Understand/releases/tag/v0.1.1
 [0.1.0]: https://github.com/understand-mcp/Understand/releases/tag/v0.1.0

@@ -40,5 +40,12 @@ jobs:
       - name: Build the distributions
         run: uv build --out-dir dist
 
+      # `uv publish` does not create attestations. It only uploads the PEP 740
+      # attestation files that sit next to the distributions. This action writes
+      # dist/*.publish.attestation from the workflow's OIDC identity, and uv
+      # then sends them to PyPI alongside the files.
+      - name: Generate PEP 740 attestations
+        uses: astral-sh/attest-action@f589a42a7efb6fe400b4f400de60b4bc90390027 # v0.0.6
+
       - name: Publish to PyPI
         run: uv publish --trusted-publishing always dist/*
