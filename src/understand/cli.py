@@ -1593,7 +1593,7 @@ def main(argv: Sequence[str] | None = None) -> int:
 
     command, argv = _split_command(argv)
 
-    if not argv or not command:
+    if not command:
         sys.stdout.write(MAIN_HELP.strip() + "\n")
         return 0
 

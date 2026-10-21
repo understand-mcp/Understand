@@ -52,3 +52,8 @@ Thumbs.db
 # Local verification artifacts
 .playwright-mcp/
 worker-*.png
+
+# A packed copy of the git directory and the local launch folder are
+# local working files, never part of the project.
+.git.rar
+launch-kit/

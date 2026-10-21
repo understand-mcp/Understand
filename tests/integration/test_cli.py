@@ -45,6 +45,29 @@ def test_capabilities_command(capsys, tmp_path: Path) -> None:
     assert document["llm_required"] is False
 
 
+def test_capabilities_command_without_options(capsys) -> None:
+    """A command that needs no option must run, not fall back to the help.
+
+    The dispatcher used to read "no argument left after the command" as "no
+    command at all", so `understand capabilities` printed the help text.
+    """
+
+    code = cli.main(["capabilities"])
+    captured = capsys.readouterr()
+    assert code == 0
+    document = json.loads(captured.out)
+    assert document["checks"]
+
+
+def test_version_command_without_options(capsys) -> None:
+    from understand import __version__
+
+    code = cli.main(["version"])
+    captured = capsys.readouterr()
+    assert code == 0
+    assert json.loads(captured.out)["version"] == __version__
+
+
 def test_config_show(capsys, tmp_path: Path) -> None:
     code, out, _err = run(capsys, ["config", "show"], tmp_path / "db.sqlite")
     assert code == 0

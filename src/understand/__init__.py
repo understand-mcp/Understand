@@ -8,6 +8,6 @@ from __future__ import annotations
 
 __all__ = ["REPORT_SCHEMA_VERSION", "TOOL_NAME", "__version__"]
 
-__version__ = "0.1.0"
+__version__ = "0.1.6"
 TOOL_NAME = "understand"
 REPORT_SCHEMA_VERSION = "1.0"

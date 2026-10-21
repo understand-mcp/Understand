@@ -4,6 +4,21 @@ All notable changes to UNDERSTAND are recorded here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and this project uses
 [semantic versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.1.6] - the version stops lying
+
+### Fixed
+- `understand capabilities` and `understand version` printed the help text
+  instead of their JSON when the command was given without a single option. The
+  dispatcher read "no argument left after the command" as "no command at all".
+- The version the tool reports was frozen at 0.1.0 while the package moved on,
+  so every report, the SARIF `analyzerVersion` and the MCP server announced a
+  version that was not the one installed. The literal now matches
+  `pyproject.toml`, and a test fails the build when the two drift apart.
+
+### Changed
+- `.gitignore` covers the local launch folder and a packed copy of the git
+  directory, so neither can be committed by accident.
+
 ## [0.1.5] - quieter findings, typed and documented
 
 The audit kept going after 0.1.4 and found that the tool was noisier about
@@ -208,6 +223,7 @@ the report a scan produces.
   120,000 edges, and the node/edge budgets remove what does not fit. Every
   removal is counted and reported.
 
+[0.1.6]: https://github.com/understand-mcp/Understand/releases/tag/v0.1.6
 [0.1.5]: https://github.com/understand-mcp/Understand/releases/tag/v0.1.5
 [0.1.4]: https://github.com/understand-mcp/Understand/releases/tag/v0.1.4
 [0.1.3]: https://github.com/understand-mcp/Understand/releases/tag/v0.1.3
