@@ -4,7 +4,7 @@ All notable changes to UNDERSTAND are recorded here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and this project uses
 [semantic versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased]
+## [0.1.4] - the audited release
 
 ### Added
 
@@ -171,6 +171,7 @@ the report a scan produces.
   120,000 edges, and the node/edge budgets remove what does not fit. Every
   removal is counted and reported.
 
+[0.1.4]: https://github.com/understand-mcp/Understand/releases/tag/v0.1.4
 [0.1.3]: https://github.com/understand-mcp/Understand/releases/tag/v0.1.3
 [0.1.2]: https://github.com/understand-mcp/Understand/releases/tag/v0.1.2
 [0.1.1]: https://github.com/understand-mcp/Understand/releases/tag/v0.1.1
