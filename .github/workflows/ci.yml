@@ -15,12 +15,18 @@ jobs:
     name: ${{ matrix.os }} · py${{ matrix.python }}
     runs-on: ${{ matrix.os }}
     strategy:
-      # The matrix is the point. Three-OS support otherwise rests on reasoning
+      # The matrix is the point. Two-OS support otherwise rests on reasoning
       # rather than on a test run, and Windows is where path handling, the
       # sqlite driver and the regex engine all differ from POSIX.
+      #
+      # macOS lives in its own workflow (ci-macos.yml). The macOS legs here
+      # were cancelled over and over because the account had no macOS runner
+      # free, and one cancelled leg turns the whole run red. macOS support is
+      # real and is still tested, but it no longer decides whether this
+      # repository is green.
       fail-fast: false
       matrix:
-        os: [ubuntu-latest, macos-latest, windows-latest]
+        os: [ubuntu-latest, windows-latest]
         python: ["3.11", "3.12", "3.13"]
     steps:
       - uses: actions/checkout@v4

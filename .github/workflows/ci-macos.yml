@@ -1,0 +1,48 @@
+name: CI (macOS)
+
+# macOS is tested, but on its own. The macOS legs of the main CI matrix were
+# cancelled again and again because the account had no macOS runner free, and
+# a cancelled leg turns a whole run red. This workflow keeps the coverage
+# without letting it decide whether the repository is green.
+
+on:
+  schedule:
+    # Weekly, so macOS coverage does not depend on someone opening a pull request.
+    - cron: "23 4 * * 1"
+  workflow_dispatch:
+  push:
+    branches: [main]
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    name: ${{ matrix.os }} · py${{ matrix.python }}
+    runs-on: ${{ matrix.os }}
+    # A macOS runner is not always available for this account. The job reports
+    # what it can and it never blocks the required CI workflow.
+    continue-on-error: true
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [macos-latest]
+        python: ["3.11", "3.12", "3.13"]
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python }}
+
+      - name: Install
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -e . pytest
+
+      - name: Test
+        run: python -m pytest -q
+
+      - name: Ruff
+        run: python -m ruff check src tests tools --exclude tests/fixtures
