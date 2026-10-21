@@ -8,6 +8,15 @@ All notable changes to UNDERSTAND are recorded here. The format follows
 
 ### Added
 
+- `understand report show SCAN_ID --share` prints a paste-ready block: the
+  repository, the number of files, the findings by severity and the top
+  findings with their file and line. `--share --format markdown` and
+  `--share --format json` give the same content in the other two shapes.
+- After the first successful scan the CLI prints one line asking for a star.
+  It is shown once per machine, it is written to stderr so a piped report
+  stays valid, and `--no-thanks` or `UNDERSTAND_NO_THANKS=1` switches it off.
+  No telemetry is sent, no network call is made, and the only thing recorded
+  is a single flag in `~/.understand/state.json`.
 - `CONTRIBUTING.md`, `SECURITY.md` and `CODE_OF_CONDUCT.md`, plus issue and
   pull request templates, so a first-time contributor knows what is expected.
 

@@ -13,7 +13,7 @@ Verified against `understand --help` and `understand scan --help` at version
 
 ```
 understand scan SOURCE [FEATURE ...] [OPTIONS]
-understand report show SCAN_ID [--format json] [--limit N] [--offset N]
+understand report show SCAN_ID [--format json] [--share] [--limit N] [--offset N]
 understand report list [--limit N] [--offset N] [--status STATUS]
 understand finding show FINDING_ID [--scan-id SCAN_ID] [--format json]
 understand map show SCAN_ID [--view module] [--root PATH] [--depth N] [--output map.html]
@@ -260,6 +260,21 @@ understand report list
 understand report show scan-20260118-a1b2c3d4 --format json --limit 25
 understand report show scan-20260118-a1b2c3d4 --limit 25 --offset 25
 ```
+
+### Share a report
+
+`--share` turns a stored report into a block you can paste into a chat, an
+issue or a post. It carries the repository, the number of files, the findings
+by severity and the top findings with their file and line.
+
+```bash
+understand report show scan-20260118-a1b2c3d4 --share
+understand report show scan-20260118-a1b2c3d4 --share --format markdown
+understand report show scan-20260118-a1b2c3d4 --share --format json
+```
+
+Nothing is uploaded when you use it: the block is printed for you to copy, and
+the tool never contacts a server to produce it.
 
 ### Inspect one finding
 

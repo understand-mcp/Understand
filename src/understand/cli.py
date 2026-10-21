@@ -151,6 +151,7 @@ class ScanArgs:
     storage: str | None = None
     mode: str | None = None
     local_root: tuple[str, ...] = ()
+    no_thanks: bool = False
 
 
 _SCAN_VALUE_FLAGS = {
@@ -191,6 +192,7 @@ _SCAN_BOOL_FLAGS = {
     "--allow-remote": "__allow_remote",
     "--no-allow-remote": "__no_allow_remote",
     "--json": "__json",
+    "--no-thanks": "__no_thanks",
 }
 
 _SCAN_SHORTHAND_FLAGS = {
@@ -335,6 +337,8 @@ def parse_scan_tokens(argv: Sequence[str]) -> tuple[ScanArgs, argparse.Namespace
                     args.offline = False
                 elif name == "__json":
                     args.report_format = "json"
+                elif name == "__no_thanks":
+                    args.no_thanks = True
                 else:
                     setattr(args, name, True)
                 continue
@@ -720,6 +724,16 @@ def _cmd_scan(argv: Sequence[str]) -> int:
             70 if report.status == "failed" else 130,
         )
 
+    # The thank-you line goes to stderr, so a piped JSON report stays valid.
+    # It is shown once per machine and can be switched off with --no-thanks
+    # or UNDERSTAND_NO_THANKS=1.
+    if not args.no_thanks:
+        from understand.sharing import maybe_thanks
+
+        note = maybe_thanks()
+        if note:
+            sys.stderr.write("\n" + note + "\n")
+
     if args.emit_report:
         _render_and_write(
             report,
@@ -751,7 +765,7 @@ def _cmd_report(argv: Sequence[str]) -> int:
     argv = list(argv)
     if argv and argv[0] in ("-h", "--help"):
         sys.stdout.write(
-            f"USAGE\n  {PROGRAM} report show SCAN_ID [--format json] [--output PATH] [--limit N] [--offset N]\n"
+            f"USAGE\n  {PROGRAM} report show SCAN_ID [--format json] [--share] [--output PATH] [--limit N] [--offset N]\n"
             f"  {PROGRAM} report list [--limit N] [--offset N] [--status STATUS] [--format json]\n"
         )
         return 0
@@ -779,6 +793,7 @@ def _cmd_report(argv: Sequence[str]) -> int:
     storage: str | None = None
     scan_id = ""
     show_help = False
+    share = False
 
     index = 0
     while index < len(rest):
@@ -789,13 +804,18 @@ def _cmd_report(argv: Sequence[str]) -> int:
         elif token in ("-q", "--quiet", "-v", "--verbose"):
             continue
         elif token in ("--format", "-f") and index < len(rest):
-            fmt = normalize_format(rest[index])
+            # Kept raw until every flag is known: `--share` accepts
+            # "markdown", which is not a report format and would be rejected
+            # by normalize_format.
+            fmt = rest[index]
             index += 1
         elif token in ("--output", "-o") and index < len(rest):
             output = rest[index]
             index += 1
         elif token == "--json":
             fmt = "json"
+        elif token == "--share":
+            share = True
         elif token == "--limit" and index < len(rest):
             # 0 means "no cap": the text renderer treats a large limit as
             # effectively unlimited, and a bare 0 would silently print an empty
@@ -842,10 +862,26 @@ def _cmd_report(argv: Sequence[str]) -> int:
 
     if show_help:
         sys.stdout.write(
-            f"USAGE\n  {PROGRAM} report show SCAN_ID [--format json] [--output PATH] [--limit N] [--offset N]\n"
+            f"USAGE\n  {PROGRAM} report show SCAN_ID [--format json] [--share] [--output PATH] [--limit N] [--offset N]\n"
             f"  {PROGRAM} report list [--limit N] [--offset N] [--status STATUS] [--format json]\n"
         )
         return 0
+
+    if share:
+        if action != "show":
+            _fail("--share is only available for `report show`")
+        key = fmt.strip().lower()
+        if key in ("markdown", "md"):
+            fmt = "markdown"
+        elif key == "json":
+            fmt = "json"
+        else:
+            fmt = "text"
+    else:
+        try:
+            fmt = normalize_format(fmt)
+        except UnderstandError as exc:
+            _fail(exc.message, code="unsupported_format")
 
     setup_logging("ERROR")
     config = load_config(config_path)
@@ -879,6 +915,11 @@ def _cmd_report(argv: Sequence[str]) -> int:
             _fail("a SCAN_ID is required", hint=f"example: {PROGRAM} report list")
 
         report = reports.get(scan_id)
+        if share:
+            from understand.sharing import build_share
+
+            sys.stdout.write(build_share(report, fmt) + "\n")
+            return 0
         if fmt == "json":
             filtered = FindingService(service.store).query_report(
                 report,
