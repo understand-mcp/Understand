@@ -109,7 +109,15 @@ SINK_PATTERNS: tuple[tuple[str, str, str], ...] = (
         r"|(?:query|execute|raw|run)\s*\(\s*[fbr]*[\"'`]",
         "SQL execution",
     ),
-    ("shell-exec", r"(?:os\s*\.\s*system|subprocess\s*\.\s*(?:run|call|Popen|check_output|check_call)|child_process\s*\.\s*(?:exec|execSync|spawn)|Runtime\s*\.\s*getRuntime)", "shell command execution"),
+    # A shell sink is a call whose arguments a shell can reinterpret. An argv
+    # array, or an explicit shell=False, means no shell is involved, so those
+    # calls are not shell sinks. ``child_process.spawn`` takes an argv array
+    # too; only exec and execSync go through a shell.
+    ("shell-exec", r"(?:os\s*\.\s*system|os\s*\.\s*popen"
+                   r"|subprocess\s*\.\s*(?:run|call|Popen|check_output|check_call)\s*\("
+                   r"(?!\s*\[)(?![^\n]*shell\s*=\s*False)"
+                   r"|child_process\s*\.\s*(?:exec|execSync)"
+                   r"|Runtime\s*\.\s*getRuntime)", "shell command execution"),
     # ``compile(`` is excluded: it is a template compiler in every frontend
     # framework (``compile(template, options)`` in Vue is not code execution).
     # ``$eval``-style names are excluded because ``$`` is a non-word character,

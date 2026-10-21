@@ -19,11 +19,28 @@ All notable changes to UNDERSTAND are recorded here. The format follows
   is a single flag in `~/.understand/state.json`.
 - `CONTRIBUTING.md`, `SECURITY.md` and `CODE_OF_CONDUCT.md`, plus issue and
   pull request templates, so a first-time contributor knows what is expected.
+- The source distribution now ships the documentation, the tests, the tooling
+  and the deployment recipe, so an sdist is a complete checkout and not just
+  the importable package.
+- `src/understand/py.typed` marks the package as typed (PEP 561), which the
+  packaging metadata already claimed.
 
 ### Changed
 
 - The README now opens with a sixty-second quickstart instead of the badge
   block.
+- The shell-injection rule no longer reports a call that passes an argument
+  array or that sets `shell=False`: no shell is involved there, so the
+  arguments cannot be reinterpreted as shell syntax. A call that reaches a
+  shell is still reported, and so is a call whose arguments are interpolated.
+- The SQL-injection rule no longer reports a statement that interpolates only
+  a reviewed query-builder clause and binds its values as parameters.
+- The taint engine no longer treats a process started with an argument array
+  as a shell sink.
+- The architecture documentation now describes the sixteen stages the pipeline
+  actually runs, and how a failure is reported: an analyzer that raises is a
+  warning, a spent time budget is a partial report, and an unexpected error
+  fails the scan and says so.
 
 ## [0.1.3] - provider-neutral distribution
 

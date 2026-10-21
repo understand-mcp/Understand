@@ -11,7 +11,7 @@ line and the reason it fired.
 [![Python](https://img.shields.io/badge/python-3.11%2B-3776ab)](https://www.python.org/)
 [![MCP](https://img.shields.io/badge/MCP-2.0-blue)](https://modelcontextprotocol.io)
 [![License](https://img.shields.io/badge/license-MIT-8a5cf5)](LICENSE)
-[![Tests](https://img.shields.io/badge/tests-533%20passed-brightgreen)](tests)
+[![Tests](https://img.shields.io/badge/tests-541%20passed-brightgreen)](tests)
 [![SARIF](https://img.shields.io/badge/output-SARIF%202.1.0-orange)](docs/cli.md)
 
 [Report a bug](https://github.com/understand-mcp/Understand/issues) ·
@@ -413,7 +413,7 @@ understand scan ./my-project security bugs --deep --cross-module report --format
 understand scan ./my-project --security --fail-on high
 
 # GitHub code scanning
-understand scan . --all --deep --format sarif --output results.sarif
+understand scan . --deep --format sarif --output results.sarif
 
 # remote
 UNDERSTAND_ALLOW_REMOTE=true UNDERSTAND_ALLOWED_HOSTS=github.com \
@@ -734,11 +734,13 @@ finding.
 
 ```text
 validate → acquire → inventory → detect languages → parse → build graph
-        → data flow → verify → run checks → impact → finalize
+        → dependencies → cross-module flow → security → bugs → reliability
+        → architecture → dependency status → normalize → coverage → cleanup
 ```
 
-Only the first three stages can fail a scan outright. A failure after that becomes
-a partial report with a recorded warning, never a quietly complete one.
+An analyzer that raises is recorded as a warning and the other analyzers still
+run. A scan that runs out of time is labelled partial. Only an unexpected error
+fails the scan outright, and it says so.
 
 Details: [docs/architecture.md](docs/architecture.md).
 
@@ -770,7 +772,7 @@ python tools/validate_sarif.py
 ```
 
 ```text
-533 passed
+541 passed
 ```
 
 Linux, macOS and Windows, Python 3.11 to 3.13. Adding a check or a language:

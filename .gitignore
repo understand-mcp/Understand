@@ -48,3 +48,7 @@ understand-config.json
 *.swp
 .DS_Store
 Thumbs.db
+
+# Local verification artifacts
+.playwright-mcp/
+worker-*.png

@@ -10,7 +10,7 @@ This document is a snapshot of the project's real state. Where it disagrees with
 
 | Area | State |
 |---|---|
-| Analysis pipeline | 11 stages, `validate_request` → `finalize` |
+| Analysis pipeline | 16 stages, `validate_request` → `cleanup` |
 | Checks | `security`, `bugs`, `architecture`, `dependencies`, `reliability` |
 | Language coverage | Python (exact `ast`), JS/TS and others (structural, honestly labelled) |
 | Graph | Symbols, call edges, imports, data flow, unresolved-call tracking |

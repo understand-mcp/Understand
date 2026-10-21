@@ -68,6 +68,39 @@ def test_shell_injection_is_found(risky_report) -> None:
     assert any(e.file.endswith(".py") for e in shell.evidence)
 
 
+def test_safe_invocation_forms_are_not_reported(config) -> None:
+    """An argv array, an explicit shell=False and a bound clause are not injections."""
+    repo = str(Path(__file__).resolve().parents[1] / "fixtures" / "repo_safe_calls")
+    with ScanService(config) as service:
+        job = service.run_sync(_request(repo))
+    assert job.succeeded, job.error
+    report = job.report
+    assert report is not None
+    shell_files = {
+        evidence.file
+        for finding in report.findings
+        if finding.rule_id == "SEC-PY-SHELL-001"
+        for evidence in finding.evidence
+    }
+    assert "app/shell_true.py" in shell_files
+    assert "app/safe_calls.py" not in shell_files
+    shell = next(
+        finding
+        for finding in report.findings
+        if finding.rule_id == "SEC-PY-SHELL-001"
+        and any(evidence.file.endswith("shell_true.py") for evidence in finding.evidence)
+    )
+    assert shell.severity.value == "critical"
+    sql_files = {
+        evidence.file
+        for finding in report.findings
+        if finding.rule_id == "SEC-SQL-001"
+        for evidence in finding.evidence
+    }
+    assert "app/raw_query.py" in sql_files
+    assert "app/bound_query.py" not in sql_files
+
+
 def test_dependencies_never_invent_cves(risky_report) -> None:
     for dependency in risky_report.dependencies:
         assert dependency.vulnerability_check == "not_performed"

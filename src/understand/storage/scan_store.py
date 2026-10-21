@@ -408,14 +408,14 @@ class ScanStore:
             where.eq("repository_name", repository)
         if status:
             where.eq("status", status)
-        clause = where.clause()
+        where_clause = where.clause()
         params = where.params
-        total = int(self._execute(f"SELECT COUNT(*) AS c FROM scans{clause}", params).fetchone()["c"])
+        total = int(self._execute(f"SELECT COUNT(*) AS c FROM scans{where_clause}", params).fetchone()["c"])
         rows = self._execute(
             f"""
             SELECT scan_id, created_at, finished_at, status, source_kind, repository,
                    repository_name, revision, finding_count
-              FROM scans{clause}
+              FROM scans{where_clause}
              ORDER BY created_at DESC, scan_id DESC
              LIMIT ? OFFSET ?
             """,
@@ -512,12 +512,12 @@ class ScanStore:
             where.eq("language", language.lower())
         if query:
             where.text_contains(f"%{query}%")
-        clause = where.clause()
+        where_clause = where.clause()
         params = where.params
-        total = int(self._execute(f"SELECT COUNT(*) AS c FROM findings{clause}", params).fetchone()["c"])
+        total = int(self._execute(f"SELECT COUNT(*) AS c FROM findings{where_clause}", params).fetchone()["c"])
         rows = self._execute(
             f"""
-            SELECT payload_json FROM findings{clause}
+            SELECT payload_json FROM findings{where_clause}
              ORDER BY
                  CASE severity
                      WHEN 'critical' THEN 0 WHEN 'high' THEN 1 WHEN 'medium' THEN 2

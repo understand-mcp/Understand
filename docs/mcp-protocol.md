@@ -6,7 +6,7 @@ envelope, and the rules a client is expected to follow.
 
 Everything described here is implemented in
 [`src/understand/mcp/`](../src/understand/mcp/) and is exercised by
-`tests/integration/test_mcp.py` (27 tests).
+`tests/integration/test_mcp.py` (37 tests).
 
 ---
 

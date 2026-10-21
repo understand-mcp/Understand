@@ -43,38 +43,50 @@ point.
 context that records start/end time, status and detail, so a report always
 states which stages actually ran.
 
-| # | Stage | What it does | Can fail the scan? |
+| # | Stage | What it does | On failure |
 |---|---|---|---|
-| 1 | `validate_request` | Request shape and policy preconditions. | Yes |
-| 2 | `acquire_source` | Resolve the source to a real directory. Remote sources are shallow-cloned into a temp dir. | Yes |
-| 3 | `inventory` | Walk the tree under the exclusion policy, read the files that pass, classify binary/text and language. | Yes |
-| 4 | `language_detection` | Resolve an analysis language per file. | No |
-| 5 | `parse_and_index` | Parse to a symbol index: functions, classes, methods, calls, imports. Unparseable files fall back to structural (regex) parsing and are reported. | No |
-| 6 | `graph_construction` | Resolve call targets and imports into a directed graph. Unresolved targets are kept as explicitly-labelled edges, never dropped. | No |
-| 7 | `data_flow` | Derive source-to-sink paths where the analyzers can prove them. | No |
-| 8 | `verification` | Score how strong each finding's evidence is. | No |
-| 9 | `checks` | Run the requested check families. | No |
-| 10 | `impact` | Reverse reachability for change-impact analysis. | No |
-| 11 | `finalize` | Sort, count, compute coverage and limitations, produce the report. | No |
+| 1 | `validate_request` | Request shape and policy preconditions. | Fails the scan. |
+| 2 | `acquire_source` | Resolve the source to a real directory. Remote sources are shallow-cloned into a temp dir. | Fails the scan. |
+| 3 | `inventory` | Walk the tree under the exclusion policy, read the files that pass, classify binary/text and language. | Fails the scan. |
+| 4 | `language_detection` | Resolve an analysis language per file. | Fails the scan. |
+| 5 | `parse_and_index` | Parse to a symbol index: functions, classes, methods, calls, imports. Files that cannot be parsed fall back to structural (regex) parsing and are reported as a warning. | A file that cannot be parsed is a warning; an unexpected error fails the scan. |
+| 6 | `graph_construction` | Resolve call targets and imports into a directed graph. Unresolved targets are kept as explicitly-labelled edges, never dropped. | Fails the scan. |
+| 7 | `dependency_analysis` | Read the dependency manifests the repository ships. | Fails the scan. |
+| 8 | `security_analysis` | Run the security rule family: the pattern rules and the source-to-sink rules. Skipped when the check was not requested. | A failing analyzer is a warning; the other analyzers still run. |
+| 9 | `bug_analysis` | Run the defect rule family. Skipped when the check was not requested. | A failing analyzer is a warning; the other analyzers still run. |
+| 10 | `reliability_analysis` | Run the reliability rule family. Skipped when the check was not requested. | A failing analyzer is a warning; the other analyzers still run. |
+| 11 | `architecture_analysis` | Run the architecture rule family: coupling, layering, cycles. Skipped when the check was not requested. | A failing analyzer is a warning; the other analyzers still run. |
+| 12 | `cross_module_analysis` | Derive source-to-sink paths where the analyzers can prove them. Skipped unless `--cross-module` or the deep profile is used. | Fails the scan. |
+| 13 | `dependency_status` | Attach vulnerability status to the dependencies. Always skipped: no trusted advisory source is configured, so CVE and CVSS values are never invented. | Never runs. |
+| 14 | `normalize_findings` | Deduplicate, sort and cap the findings. | Fails the scan. |
+| 15 | `coverage` | Compute what was analysed, what was skipped and what the limitations are. | Fails the scan. |
+| 16 | `cleanup` | Release the workspace and the temporary clone. | Always runs, even after a failure. |
 
-### Why only stages 1–3 can fail the scan
+Stage 12 executes before stages 8 to 11: the flow analysis feeds the security
+analyzer. The stage list keeps the declared order above so a report always reads
+the same way.
 
-Stage 1 is input validation, stage 2 is source acquisition, stage 3 is reading
-bytes. If any of those fail there is nothing to report — the scan is genuinely
-`failed`.
+### How a failure is reported
 
-Everything after that has already read the repository. Failing the whole scan at
-stage 9 would throw away real, useful findings about the repository because one
-analyzer hit an edge case. Instead the orchestrator:
+Three outcomes, and they are not the same thing.
 
-- records the failure as a `ScanWarning` in `report.errors` with a machine-readable
-  `code`,
-- sets `report.status` to `partial`,
-- keeps every finding that *was* produced.
+- **`failed`** — the scan raised an unexpected exception. Any stage can do this:
+  if `graph_construction` or `coverage` throws, the whole scan fails, because a
+  report that claims to describe a repository it could not fully describe would
+  be a lie. The reason lands in `report.errors` with a machine-readable `code`
+  (`analysis_error`, or the code of the `UnderstandError` that was raised).
+- **`partial`** — the wall-clock budget ran out. `ResourceLimitExceeded` at a
+  stage checkpoint ends the scan early, `report.status` is `partial` and
+  `report.partial` is true. The findings produced up to that point are kept.
+- **`completed` with warnings** — an individual analyzer raised, or a file could
+  not be parsed. The analyzer registry catches the exception per analyzer and
+  records it as a `ScanWarning` in `report.warnings`. The scan continues, every
+  other analyzer still contributes, and the status stays `completed`.
 
-A partial report is explicitly labelled partial, in the CLI output, in the JSON
-payload, in the SARIF `invocation.executionSuccessful`, and in the limitations
-list. It is never presented as complete.
+So an analyzer edge case never costs you the other findings, and a budget
+overrun is labelled partial, in the CLI output, in the JSON payload, in the
+SARIF `invocation.executionSuccessful`, and in the limitations list. It is never
+presented as complete.
 
 ## Cancellation and budgets
 

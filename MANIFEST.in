@@ -1,0 +1,15 @@
+include LICENSE
+include README.md
+include CHANGELOG.md
+include CONTRIBUTING.md
+include SECURITY.md
+include CODE_OF_CONDUCT.md
+include Dockerfile
+include .dockerignore
+include src/understand/py.typed
+recursive-include docs *.md
+recursive-include tools *.py
+recursive-include deploy *
+recursive-include .github *.yml *.md
+recursive-include tests *.py
+recursive-include tests/fixtures *

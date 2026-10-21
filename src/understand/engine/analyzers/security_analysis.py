@@ -81,8 +81,9 @@ RULES: tuple[Rule, ...] = (
         explanation=(
             "A process is spawned through the shell-oriented API family. If any argument "
             "originates outside the module constants it can be used to inject additional "
-            "shell syntax. The pattern alone does not prove injection: constant argument "
-            "lists and argv-array invocation are safe."
+            "shell syntax. A call that passes an argv array, or that sets shell=False "
+            "explicitly, is not reported: no shell is involved, so the arguments cannot "
+            "be reinterpreted as shell syntax."
         ),
         impact="Arbitrary command execution with the privileges of the process.",
         remediation=(
@@ -91,6 +92,17 @@ RULES: tuple[Rule, ...] = (
         ),
         assumptions=("The interpreter reaches this call with attacker-influenceable data.",),
         references=("https://cwe.mitre.org/data/definitions/78.html",),
+        # An argv array, or an explicit shell=False, means no shell is involved:
+        # the arguments cannot be reinterpreted as shell syntax, so this is not
+        # shell injection. A call that explicitly enables the shell is never
+        # excluded.
+        exclude_context=(
+            re.compile(r"shell\s*=\s*False"),
+            re.compile(
+                r"subprocess\s*\.\s*(?:run|call|check_output|check_call|Popen)\s*\("
+                r"(?!(?:.|\n)*shell\s*=\s*True)(?:.|\n)*?\["
+            ),
+        ),
     ),
     Rule(
         rule_id="SEC-JS-SHELL-001",
@@ -123,13 +135,24 @@ RULES: tuple[Rule, ...] = (
         explanation=(
             "A SQL statement is assembled from non-constant text. If any fragment is "
             "externally controlled this permits SQL injection. Detection is syntactic; a "
-            "constant query or a properly parameterised statement will not match."
+            "constant query or a properly parameterised statement will not match. A "
+            "statement that interpolates only a reviewed query-builder clause and binds "
+            "its values as parameters is not reported."
         ),
         impact="Database read/write access, and often full database compromise.",
         remediation="Use parameterised queries / prepared statements and bind values.",
         assumptions=("An interpolated fragment is attacker-influenceable.",),
         references=("https://cwe.mitre.org/data/definitions/89.html",
                     "https://owasp.org/Top10/A03_2021-Injection/"),
+        # A statement that interpolates exactly one fragment - a clause built by a
+        # reviewed query builder - and binds its values as parameters cannot be
+        # injected through that fragment: the values never reach the statement
+        # as text. Any other interpolation is still reported.
+        exclude_context=(
+            re.compile(
+                r"execute\s*\(\s*f?[\"'][^\"'{}]*\{(?:where_)?clause\}[^\"'{}]*[\"']\s*,\s*params?\b"
+            ),
+        ),
     ),
     Rule(
         rule_id="SEC-PY-EVAL-001",
@@ -496,6 +519,23 @@ def _applicable(rule: Rule, language: str) -> bool:
     return not rule.languages or language in rule.languages
 
 
+def _statement_window(module, lineno: int, max_lines: int = 8) -> str:
+    """Return the raw source of a call whose arguments span several lines.
+
+    A rule matches a single line, but the call itself has to be judged as a
+    whole: an argv array on the next line is the same safe call.
+    """
+    parts = [module.line(lineno)]
+    depth = parts[0].count("(") - parts[0].count(")")
+    index = lineno
+    while depth > 0 and len(parts) < max_lines and index < len(module.lines):
+        index += 1
+        following = module.line(index)
+        parts.append(following)
+        depth += following.count("(") - following.count(")")
+    return "\n".join(parts)
+
+
 def run_rules(ctx: AnalysisContext) -> list[RuleMatch]:
     matches: list[RuleMatch] = []
     for path, module in sorted(ctx.index.modules.items()):
@@ -512,8 +552,16 @@ def run_rules(ctx: AnalysisContext) -> list[RuleMatch]:
                 m = rule.pattern.search(text)
                 if not m:
                     continue
-                if any(ex.search(text) for ex in rule.exclude_context):
-                    continue
+                # The exclusion is checked against the sanitised line *and* the
+                # raw statement it belongs to. The sanitiser blanks f-string
+                # interpolations, so a reviewed clause is no longer
+                # recognisable in the sanitised text; the raw source is used for
+                # the decision only and is redacted again before it reaches a
+                # report.
+                if rule.exclude_context:
+                    window = _statement_window(module, lineno)
+                    if any(ex.search(text) or ex.search(window) for ex in rule.exclude_context):
+                        continue
                 matches.append(RuleMatch(rule, path, lineno, raw.strip(), _scope(ctx, path, lineno)))
         for rule in CONFIG_RULES:
             if not _applicable(rule, module.language):
