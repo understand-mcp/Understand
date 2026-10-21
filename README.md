@@ -2,9 +2,11 @@
 
 # UNDERSTAND
 
-Repository-wide code intelligence, security and defect analysis.
+**Static analysis that shows its work.**
 
-A CLI and an MCP server over one engine.
+A CLI and an MCP server over one engine: security, defects, architecture,
+dependencies and an interactive code map. Every finding carries the file, the
+line and the reason it fired.
 
 [![Python](https://img.shields.io/badge/python-3.11%2B-3776ab)](https://www.python.org/)
 [![MCP](https://img.shields.io/badge/MCP-2.0-blue)](https://modelcontextprotocol.io)
@@ -13,9 +15,35 @@ A CLI and an MCP server over one engine.
 [![SARIF](https://img.shields.io/badge/output-SARIF%202.1.0-orange)](docs/cli.md)
 
 [Report a bug](https://github.com/understand-mcp/Understand/issues) ·
-[Request a feature](https://github.com/understand-mcp/Understand/issues)
+[Request a feature](https://github.com/understand-mcp/Understand/issues) ·
+[Discussions](https://github.com/understand-mcp/Understand/discussions) ·
+[Support this project](#support-this-project)
 
 </div>
+
+## Try it in 60 seconds
+
+```bash
+pip install understand-mcp
+understand scan . --deep --cross-module
+```
+
+That is the whole setup. It reads the repository you are in, runs the eleven
+analysis stages, prints each finding with its evidence, and keeps the scan so
+the other commands can work with it.
+
+```bash
+understand report list                        # every scan you have run
+understand report show <scan-id> --share      # a block you can paste anywhere
+understand map show <scan-id> -o map.html --open   # the interactive code map
+```
+
+- **Evidence, not vibes.** Each finding names the rule, the file, the line and
+  the reasoning, so you can check it and disagree with it.
+- **No cloud, no account.** It runs locally. Nothing is uploaded and nothing
+  phones home.
+- **The same engine over MCP.** Ten tools and three resources, so an assistant
+  can scan a repository and cite what it found.
 
 ## Real run: microsoft/playwright
 

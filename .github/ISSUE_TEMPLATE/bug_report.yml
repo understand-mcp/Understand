@@ -1,0 +1,92 @@
+name: Bug report
+description: Something in UNDERSTAND is wrong, or a finding is wrong.
+title: "[bug] "
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for taking the time. The most useful bug reports here are
+        **wrong findings** — a rule that fired when it should not have.
+        Paste the finding and say which part of it does not hold.
+
+  - type: input
+    id: version
+    attributes:
+      label: Version
+      description: The version or commit you ran.
+      placeholder: "0.1.3"
+    validations:
+      required: true
+
+  - type: input
+    id: command
+    attributes:
+      label: Command
+      description: The exact command you ran.
+      placeholder: "understand scan . --deep --cross-module"
+    validations:
+      required: true
+
+  - type: dropdown
+    id: kind
+    attributes:
+      label: What kind of problem is it?
+      options:
+        - A finding that is wrong (false positive)
+        - A crash or an error
+        - Missing analysis (a real problem the tool did not report)
+        - Output or report format
+        - MCP server behaviour
+        - Documentation
+        - Something else
+    validations:
+      required: true
+
+  - type: textarea
+    id: expected
+    attributes:
+      label: What did you expect?
+      description: What the output should have said, and why.
+    validations:
+      required: true
+
+  - type: textarea
+    id: actual
+    attributes:
+      label: What happened instead?
+      description: The output you got, including the finding id, rule id, file and line.
+      render: shell
+    validations:
+      required: true
+
+  - type: textarea
+    id: reproduction
+    attributes:
+      label: How can we reproduce it?
+      description: The repository or code, the command, and anything else needed.
+      render: shell
+    validations:
+      required: true
+
+  - type: input
+    id: os
+    attributes:
+      label: Operating system
+      placeholder: "Windows 11 / Ubuntu 24.04 / macOS 15"
+    validations:
+      required: true
+
+  - type: input
+    id: python
+    attributes:
+      label: Python version
+      placeholder: "3.12.4"
+    validations:
+      required: true
+
+  - type: textarea
+    id: extras
+    attributes:
+      label: Anything else?
+      description: Minimal reproduction, logs, screenshots, or a link to the code.

@@ -4,6 +4,18 @@ All notable changes to UNDERSTAND are recorded here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and this project uses
 [semantic versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Added
+
+- `CONTRIBUTING.md`, `SECURITY.md` and `CODE_OF_CONDUCT.md`, plus issue and
+  pull request templates, so a first-time contributor knows what is expected.
+
+### Changed
+
+- The README now opens with a sixty-second quickstart instead of the badge
+  block.
+
 ## [0.1.3] - provider-neutral distribution
 
 ### Removed

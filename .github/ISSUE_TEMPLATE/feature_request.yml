@@ -1,0 +1,48 @@
+name: Feature request
+description: Ask for a rule, a language, a format or a capability.
+title: "[feature] "
+labels: ["enhancement"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Tell us what you are trying to do, not just what you want added.
+        "A rule that flags X" is easier to act on than "more rules".
+
+  - type: dropdown
+    id: area
+    attributes:
+      label: Which area?
+      options:
+        - A new rule or analyzer
+        - A new language or parser
+        - Report output (text, JSON, SARIF, map)
+        - MCP tools or resources
+        - CLI ergonomics
+        - Performance or scale
+        - Documentation
+        - Something else
+    validations:
+      required: true
+
+  - type: textarea
+    id: problem
+    attributes:
+      label: What problem are you trying to solve?
+      description: The situation, and what you do today instead.
+    validations:
+      required: true
+
+  - type: textarea
+    id: proposal
+    attributes:
+      label: What would the solution look like?
+      description: A command, an output format, a rule id, a config option.
+    validations:
+      required: true
+
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: What have you already tried?
+      description: Tools, scripts or workarounds.
