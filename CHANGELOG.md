@@ -4,6 +4,25 @@ All notable changes to UNDERSTAND are recorded here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and this project uses
 [semantic versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased] - provider-neutral distribution
+
+### Removed
+
+- Publishing to Smithery. `smithery.yaml` and `docs/smithery.md` are gone, and
+  the docs no longer name a directory.
+
+### Added
+
+- `deploy/`: a self-hosting recipe - the server container behind Caddy, with TLS
+  and HTTP basic authentication, a persistent scan database, and the budgets the
+  server enforces. Copy `deploy/.env.example` to `deploy/.env`, fill it in, and
+  run `docker compose up -d`.
+
+### Changed
+
+- The bundle builder and the release workflow describe the `.mcpb` bundle in
+  provider-neutral terms. The bundle itself is unchanged.
+
 ## [0.1.2] — signed provenance on PyPI
 
 ### Changed

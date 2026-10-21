@@ -1,6 +1,6 @@
 """Build the distributable MCPB bundle for UNDERSTAND.
 
-Smithery can distribute a server as an ``.mcpb`` archive that clients run
+A host can distribute a server as an ``.mcpb`` archive that clients run
 locally over stdio. The archive needs three things: a manifest, the package
 source, and a small entry point that makes the runtime dependencies available
 on a machine that does not have them yet.

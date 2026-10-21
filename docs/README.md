@@ -17,7 +17,7 @@ when you are integrating or operating it.
 | [configuration.md](configuration.md) | Every setting, every environment variable, every default, and how they interact. |
 | [clients.md](clients.md) | Verified configuration for each MCP-capable AI client, with per-platform notes. |
 | [deployment.md](deployment.md) | Running the server as a hosted HTTP service, containers, and network exposure. |
-| [smithery.md](smithery.md) | Publishing UNDERSTAND to Smithery, both as a hosted URL and as a bundle. |
+| [mcpb.md](mcpb.md) | Building the distributable MCPB bundle. |
 | [portability.md](portability.md) | Linux, macOS and Windows behaviour, known differences, and how to work around them. |
 | [extending.md](extending.md) | How to add a check, a rule, a language, or an MCP tool. |
 | [interactive-map.md](interactive-map.md) | Code maps: the shipped views and renderer, the budgets and honesty rules, the adaptive-quality controller, and what a node and a finding explain when you click them. |

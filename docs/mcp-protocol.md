@@ -14,7 +14,7 @@ Everything described here is implemented in
 
 The server is the thin module [`src/understand/mcp_server.py`](../src/understand/mcp_server.py),
 which exists so the package can be launched by `python -m`, by Docker and by
-Smithery without importing anything else first.
+a hosted platform without importing anything else first.
 
 Three equivalent entry points:
 
@@ -33,7 +33,7 @@ python -m understand.mcp_server [stdio|streamable-http|sse]
 | Transport | Default | Use when |
 | --- | --- | --- |
 | `stdio` | yes | Desktop clients that spawn the process (Claude Desktop, Cursor, Codex, OpenCode, …). The client talks over stdin/stdout. |
-| `streamable-http` | no | You host the server yourself and clients connect to `http://host:port/mcp`. **This is the transport Smithery requires for a hosted listing.** |
+| `streamable-http` | no | You host the server yourself and clients connect to `http://host:port/mcp`. **This is the transport a hosted listing requires.** |
 | `sse` | no | Legacy clients that predate Streamable HTTP. Kept for compatibility. |
 
 ### Environment variables

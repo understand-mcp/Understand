@@ -1,6 +1,6 @@
 """Console entry point: ``python -m understand.mcp_server``.
 
-Kept as a thin module so the package can be launched by Smithery, Docker and
+Kept as a thin module so the package can be launched by a hosted platform, Docker and
 plain ``python -m`` without importing anything else first.
 """
 

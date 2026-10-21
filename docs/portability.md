@@ -179,7 +179,7 @@ A `Dockerfile` is included. It is Linux by definition — a container image has 
 Windows or macOS variant — so it is one deployment option, not the portability
 story. Native install works everywhere.
 
-The image is built for the streamable-HTTP shape (Smithery and shared
+The image is built for the streamable-HTTP shape (hosted platforms and shared
 deployments): it runs as an unprivileged user, exposes port 8000, and defaults
 `UNDERSTAND_MCP_HOST` to `0.0.0.0` so it accepts connections from outside the
 container. For a stdio deployment, override the transport:
@@ -189,7 +189,7 @@ docker run --rm -i -v "$PWD:/repo" understand-mcp
 ```
 
 A full `python:3.12-slim` base is used rather than distroless specifically because
-Smithery's container runtime needs `sh`. See [deployment.md](deployment.md).
+A hosted platform's container runtime needs `sh`. See [deployment.md](deployment.md).
 
 ---
 

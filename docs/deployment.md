@@ -6,7 +6,7 @@ How to run UNDERSTAND outside your own machine. Three shapes, in increasing orde
 |---|---|---|---|
 | Local stdio | stdio | One AI client, one user | Desktop assistants, IDE plugins, CI jobs |
 | Local HTTP | streamable-http | Anything on your machine | Your own agent code, shared team server |
-| Remote HTTP | streamable-http | Anything on the internet | Hosted deployment, [Smithery](smithery.md) |
+| Remote HTTP | streamable-http | Anything on the internet | Hosted deployment, see [section 3](#3-remote-http) |
 
 The engine is identical in all three. Only the transport changes.
 
@@ -137,7 +137,7 @@ The server is honest about analysis; it is not hardened for the public internet.
 
 ### 3.4 OAuth and RFC 9728
 
-[Smithery](smithery.md) and other hosts require unauthenticated requests to return **401**, never 403, so that OAuth discovery can begin (RFC 9728 / RFC 9728-protected-resource-metadata). Terminate auth at your proxy and return `401` with a `WWW-Authenticate` header pointing at your authorisation server's metadata document.
+Hosted platforms and other hosts require unauthenticated requests to return **401**, never 403, so that OAuth discovery can begin (RFC 9728 / RFC 9728-protected-resource-metadata). Terminate auth at your proxy and return `401` with a `WWW-Authenticate` header pointing at your authorisation server's metadata document.
 
 ---
 

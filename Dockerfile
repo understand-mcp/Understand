@@ -3,9 +3,9 @@
 # Two shapes in one file:
 #   * default (stdio)      - the MCP client starts the server itself over stdio
 #   * streamable-http      - the server runs as an HTTP service, which is what
-#                            Smithery and other remote registries require
+#                            Hosted platforms and remote registries require
 #
-# Smithery's container runtime needs: a Linux image, `sh` available, and a
+# A hosted platform's container runtime needs: a Linux image, `sh` available, and a
 # process that speaks HTTP. `sh` is why the runtime base is used instead of a
 # distroless image: a distroless image cannot host a shell entrypoint.
 #

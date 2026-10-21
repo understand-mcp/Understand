@@ -1,0 +1,34 @@
+# Public HTTPS endpoint for the UNDERSTAND MCP server.
+#
+# The MCP server itself ships no authentication, so this proxy is the access
+# control boundary. Caddy answers unauthenticated requests with 401 and a
+# WWW-Authenticate header, which is what an MCP host needs in order to start
+# an authentication handshake (RFC 9728).
+#
+# Generate the password hash once and keep it in your .env file:
+#   docker run --rm caddy:2-alpine caddy hash-password --plaintext 'YOUR-TOKEN'
+#
+# On Caddy older than 2.8 replace `basic_auth` with `basicauth`.
+
+{
+	email {$ACME_EMAIL:admin@example.com}
+}
+
+{$MCP_HOST:localhost} {
+	encode zstd gzip
+
+	basic_auth {
+		{$MCP_AUTH_USER:understand} {$MCP_AUTH_HASH}
+	}
+
+	reverse_proxy app:8000 {
+		# The streamable-http transport is a streaming endpoint. Buffering it
+		# would delay every server-sent event until the response completes.
+		flush_interval -1
+	}
+
+	log {
+		output stdout
+		format json
+	}
+}

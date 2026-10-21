@@ -1,0 +1,58 @@
+# Hosting recipe for the public HTTPS endpoint that the Smithery publish form
+# asks for. The form only accepts an external MCP URL, so the server has to
+# actually run somewhere reachable.
+#
+#   cp .env.example .env     # fill in MCP_HOST, MCP_AUTH_HASH, ACME_EMAIL
+#   docker compose up -d
+#
+# The MCP server has no authentication of its own, so Caddy is the access
+# boundary: it terminates TLS and demands basic auth on every request. It also
+# answers unauthenticated calls with 401 plus a WWW-Authenticate header, which
+# is what an OAuth discovery client needs to start a handshake (RFC 9728).
+services:
+  app:
+    build:
+      context: ..
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    environment:
+      UNDERSTAND_MCP_TRANSPORT: streamable-http
+      UNDERSTAND_MCP_HOST: 0.0.0.0
+      UNDERSTAND_MCP_PORT: "8000"
+      UNDERSTAND_STORAGE: /data/scans.db
+      UNDERSTAND_MAX_FILES: "20000"
+      UNDERSTAND_MAX_FILE_BYTES: "2000000"
+      UNDERSTAND_MAX_TOTAL_BYTES: "200000000"
+      UNDERSTAND_WORKERS: "4"
+    volumes:
+      - scans:/data
+    expose:
+      - "8000"
+    healthcheck:
+      test: ["CMD", "python", "/usr/local/bin/healthcheck.py"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+
+  caddy:
+    image: caddy:2-alpine
+    restart: unless-stopped
+    depends_on:
+      - app
+    environment:
+      MCP_HOST: ${MCP_HOST:?set MCP_HOST to the public hostname}
+      MCP_AUTH_USER: ${MCP_AUTH_USER:-understand}
+      MCP_AUTH_HASH: ${MCP_AUTH_HASH:?run caddy hash-password and paste the result}
+      ACME_EMAIL: ${ACME_EMAIL:?set ACME_EMAIL for the ACME account}
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+
+volumes:
+  scans:
+  caddy_data:
+  caddy_config:

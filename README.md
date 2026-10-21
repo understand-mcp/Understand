@@ -727,7 +727,7 @@ The long version is in `docs/`.
 | [configuration.md](docs/configuration.md) | Every setting |
 | [clients.md](docs/clients.md) | Per-client setup, bridges, remote hosting |
 | [deployment.md](docs/deployment.md) | Local, container, remote |
-| [smithery.md](docs/smithery.md) | Publishing to Smithery |
+| [mcpb.md](docs/mcpb.md) | The distributable MCPB bundle |
 | [portability.md](docs/portability.md) | Linux, macOS, Windows |
 | [extending.md](docs/extending.md) | Adding a check, a language, a tool |
 | [interactive-map.md](docs/interactive-map.md) | Interactive code maps: what ships, what is next |
@@ -760,8 +760,8 @@ Runs unprivileged, defaults to streamable HTTP on 0.0.0.0:8000, stores in
 [docs/deployment.md](docs/deployment.md) first, because a remote MCP server has no
 access to the client's disk.
 
-Publishing to Smithery: [docs/smithery.md](docs/smithery.md). You publish it,
-under your own account.
+The distributable bundle: [docs/mcpb.md](docs/mcpb.md). One command builds it,
+and every published release attaches it.
 
 ## Troubleshooting
 

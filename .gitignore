@@ -31,6 +31,7 @@ tools/.sarif-schema.json
 # Secrets - never commit these
 .env
 .env.*
+!deploy/.env.example
 *.pem
 *.key
 *.p12

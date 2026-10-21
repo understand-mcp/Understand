@@ -1,7 +1,7 @@
 name: release bundle
 
 # Builds the MCPB archive from source and attaches it to the published
-# release, so the distributable Smithery bundle is reproducible from the
+# release, so the distributable bundle is reproducible from the
 # repository instead of being uploaded by hand.
 
 on:
