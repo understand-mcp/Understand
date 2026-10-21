@@ -183,7 +183,27 @@ Two things about that `commandFunction`:
 - It is a **JavaScript arrow function evaluated by Smithery**, not a shell command. It must return `{ command, args, env }`.
 - The conditional spreads matter. `...(x !== undefined && { X: String(x) })` means an unset value is simply absent, so the server's own defaults still apply. Writing `UNDERSTAND_ALLOW_REMOTE: config.x` unconditionally would set the variable to `"undefined"` and break the default.
 
-### Step 2: build and publish
+### Step 2: build the bundle from source
+
+The bundle is reproducible from the working tree. One command stages it and
+packs it:
+
+```bash
+npm install -g @anthropic-ai/mcpb
+python tools/build_mcpb.py --out-dir dist
+```
+
+That writes `dist/understand-mcp-<version>.mcpb`. The builder copies
+`pyproject.toml`, `README.md`, `LICENSE` and the `src/` tree into a staging
+directory, writes the `manifest.json` and a small `server/main.py` shim, and
+then calls `mcpb pack`. The shim imports the bundled source directly and, if
+the runtime dependencies are missing, creates a `.venv` next to the bundle and
+installs `understand-mcp` from PyPI before starting the server.
+
+The release workflow does the same thing and attaches the result to the GitHub
+release, so a published `.mcpb` always matches a published tag.
+
+### Step 3: publish the bundle
 
 ```bash
 smithery mcp publish ./server.mcpb -n your-org/understand

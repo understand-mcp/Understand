@@ -1,0 +1,39 @@
+# Smithery publishing configuration for UNDERSTAND.
+#
+# Route B of docs/smithery.md: clients run the server locally over stdio.
+# The commandFunction is a JavaScript arrow function evaluated by Smithery, not
+# a shell command, and every property below is optional so an unset value
+# leaves the server's own defaults in place.
+startCommand:
+  type: stdio
+  configSchema:
+    type: object
+    properties:
+      UNDERSTAND_CONFIG:
+        type: string
+        description: Path to a JSON configuration file.
+      UNDERSTAND_STORAGE:
+        type: string
+        description: Where to keep the scan database.
+      UNDERSTAND_ALLOW_REMOTE:
+        type: string
+        description: "true to permit scanning remote git repositories."
+      UNDERSTAND_ALLOWED_HOSTS:
+        type: string
+        description: Comma-separated outbound host allowlist.
+      UNDERSTAND_MAX_FILES:
+        type: integer
+        description: Maximum files to read in one scan.
+    additionalProperties: false
+  commandFunction: |
+    (config) => ({
+      command: 'python',
+      args: ['-m', 'understand.mcp_server', 'stdio'],
+      env: {
+        ...(config.UNDERSTAND_CONFIG !== undefined && { UNDERSTAND_CONFIG: String(config.UNDERSTAND_CONFIG) }),
+        ...(config.UNDERSTAND_STORAGE !== undefined && { UNDERSTAND_STORAGE: String(config.UNDERSTAND_STORAGE) }),
+        ...(config.UNDERSTAND_ALLOW_REMOTE !== undefined && { UNDERSTAND_ALLOW_REMOTE: String(config.UNDERSTAND_ALLOW_REMOTE) }),
+        ...(config.UNDERSTAND_ALLOWED_HOSTS !== undefined && { UNDERSTAND_ALLOWED_HOSTS: String(config.UNDERSTAND_ALLOWED_HOSTS) }),
+        ...(config.UNDERSTAND_MAX_FILES !== undefined && { UNDERSTAND_MAX_FILES: String(config.UNDERSTAND_MAX_FILES) }),
+      },
+    })

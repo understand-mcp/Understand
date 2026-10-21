@@ -4,6 +4,22 @@ All notable changes to UNDERSTAND are recorded here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and this project uses
 [semantic versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.1.1] — the distributable bundle
+
+### Added
+- `tools/build_mcpb.py`: one command that builds the Smithery `.mcpb` bundle
+  from the working tree — manifest, source, bootstrap shim, packed archive.
+- `smithery.yaml`: the publishing configuration for the stdio bundle.
+- `.github/workflows/bundle.yml`: builds the bundle and attaches it to a
+  published release, so a released `.mcpb` always matches a released tag.
+- `.github/workflows/publish.yml`: publishes to PyPI from CI through Trusted
+  Publishing, so the uploaded files carry provenance metadata.
+
+### Changed
+- The PyPI upload moved from a local machine to CI. A release is now
+  published by a signed tag, and the same build that produces the bundle
+  produces the distribution.
+
 ## [0.1.0] — first release
 
 UNDERSTAND is a repository-intelligence engine with two interfaces over one
@@ -90,4 +106,5 @@ the report a scan produces.
   120,000 edges, and the node/edge budgets remove what does not fit. Every
   removal is counted and reported.
 
+[0.1.1]: https://github.com/understand-mcp/Understand/releases/tag/v0.1.1
 [0.1.0]: https://github.com/understand-mcp/Understand/releases/tag/v0.1.0
