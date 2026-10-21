@@ -236,7 +236,7 @@ class ToolBox:
         args = schemas.validate(schemas.DataFlowInput, payload)
         report = self.reports.get(args.scan_id)
         return TraceService(report).trace_data_flow(
-            finding_id=args.finding_id,
+            finding_id=args.finding_id or "",
             max_flows=args.max_flows,
         )
 

@@ -18,7 +18,7 @@ import json
 import os
 import sys
 from collections.abc import Callable
-from typing import Annotated, Any, Literal
+from typing import Annotated, Any, Literal, cast
 
 from mcp.server.mcpserver import MCPServer
 from mcp.types import ToolAnnotations
@@ -67,8 +67,15 @@ No tool executes code, runs shell commands, or reads arbitrary paths. The
 repository under analysis is treated strictly as untrusted data.
 """
 
-_READ_ONLY = ToolAnnotations(readOnlyHint=True, destructiveHint=False, idempotentHint=True, openWorldHint=False)
-_MUTATING = ToolAnnotations(readOnlyHint=False, destructiveHint=False, idempotentHint=False, openWorldHint=False)
+# The SDK exposes these hints under their snake_case field names and
+# serialises them with the camelCase aliases the protocol uses, so the
+# wire format is unchanged.
+_READ_ONLY = ToolAnnotations(
+    read_only_hint=True, destructive_hint=False, idempotent_hint=True, open_world_hint=False
+)
+_MUTATING = ToolAnnotations(
+    read_only_hint=False, destructive_hint=False, idempotent_hint=False, open_world_hint=False
+)
 
 ScanId = Annotated[str, Field(min_length=1, max_length=128, description="Scan id returned by scan_repository.")]
 FindingId = Annotated[
@@ -245,12 +252,16 @@ def build_server(
     else:
         box = ToolBox(toolbox)
     level = (log_level or "INFO").upper()
+    resolved_level = cast(
+        Literal["DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"],
+        level if level in {"DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"} else "INFO",
+    )
     server = MCPServer(
         name=TOOL_NAME,
         title="UNDERSTAND",
         version=__version__,
         instructions=INSTRUCTIONS,
-        log_level=level if level in {"DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"} else "INFO",
+        log_level=resolved_level,
     )
 
     def scan_repository(

@@ -7,7 +7,7 @@ forward typed arguments to the shared application services.
 
 from __future__ import annotations
 
-from typing import Annotated, Any, Literal
+from typing import Annotated, Any, Literal, TypeVar
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 from pydantic import ValidationError as PydanticValidationError
@@ -307,7 +307,10 @@ class MapQueryInput(Strict):
     html: Annotated[bool, Field(description="Also return the single-file HTML. Off by default.")] = False
 
 
-def validate(model: type[Strict], payload: dict[str, Any]) -> Strict:
+_M = TypeVar("_M", bound=Strict)
+
+
+def validate(model: type[_M], payload: dict[str, Any]) -> _M:
     """Validate ``payload`` against ``model``.
 
     Pydantic failures are re-raised as

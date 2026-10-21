@@ -36,12 +36,16 @@ from understand.models import CallSite, SupportLevel, Symbol
 
 log = get_logger("engine.symbols")
 
+_ts: Any = None
+_ts_ts: Any = None
 try:  # optional extra: pip install "understand-mcp[ts]"
-    import tree_sitter as _ts
-    import tree_sitter_typescript as _ts_ts
+    import tree_sitter as _ts_module
+    import tree_sitter_typescript as _ts_typescript_module
+
+    _ts = _ts_module
+    _ts_ts = _ts_typescript_module
 except Exception:  # pragma: no cover - depends on which extras are installed
-    _ts = None
-    _ts_ts = None
+    pass
 
 #: True when both the runtime and the TypeScript grammars are importable.
 _TREE_SITTER_OK = _ts is not None and _ts_ts is not None
