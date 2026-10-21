@@ -121,6 +121,10 @@ def risky_scan_id(risky_repo: str, session_config) -> Iterator[str]:
 
     request = ScanRequest(
         repository=risky_repo,
+        # Never read this scan from the cache and never write it there. A
+        # cached report carries no duration, so if another test scans this
+        # fixture first the timing assertions would depend on test order.
+        use_cache=False,
         profile=Profile.DEEP,
         checks=(Check.SECURITY, Check.BUGS, Check.ARCHITECTURE, Check.RELIABILITY),
         cross_module=True,
@@ -128,6 +132,7 @@ def risky_scan_id(risky_repo: str, session_config) -> Iterator[str]:
     with ScanService(session_config) as service:
         job = service.run_sync(request, timeout=180)
         assert job.succeeded, job.error
+        assert not job.from_cache, "the session scan must be a fresh scan"
         yield job.scan_id
 
 
@@ -146,6 +151,9 @@ def minimal_scan_id(minimal_repo: str, session_config) -> str:
 
     request = ScanRequest(
         repository=minimal_repo,
+        # Same reasoning as the risky fixture: the session scan must not be
+        # served from the cache.
+        use_cache=False,
         profile=Profile.DEEP,
         checks=(Check.SECURITY, Check.BUGS, Check.ARCHITECTURE, Check.RELIABILITY),
         cross_module=True,
