@@ -34,6 +34,7 @@ from understand.models import (
     VerificationStatus,
 )
 from understand.security.redaction import looks_like_secret, redact_snippet
+from understand.security.repository_policy import is_test_path
 
 SEVERITY_CONVENTION = (
     "Severity uses a custom 5-level convention aligned with common practice: "
@@ -61,6 +62,7 @@ class Rule:
     references: tuple[str, ...] = ()
     exclude_context: tuple[re.Pattern[str], ...] = ()
     deep_only: bool = False
+    skip_in_tests: bool = False
 
 
 def _r(*parts: str) -> re.Pattern[str]:
@@ -320,6 +322,7 @@ RULES: tuple[Rule, ...] = (
         title="assert used for security-relevant validation",
         category="improper-validation",
         pattern=_r(r"^\s*assert\s+"),
+        skip_in_tests=True,
         languages=("python",),
         severity=Severity.MEDIUM,
         confidence=Confidence.LOW,
@@ -457,6 +460,7 @@ RULES: tuple[Rule, ...] = (
         title="Insecure temporary file creation",
         category="insecure-tempfile",
         pattern=_r(r"\bmktemp\s*\(", r"tempfile\s*\.\s*mktemp\s*\("),
+        skip_in_tests=True,
         languages=("python", "javascript", "typescript", "ruby", "shell"),
         severity=Severity.MEDIUM,
         confidence=Confidence.HIGH,
@@ -548,6 +552,8 @@ def run_rules(ctx: AnalysisContext) -> list[RuleMatch]:
                 if not _applicable(rule, module.language):
                     continue
                 if rule.deep_only and not ctx.deep:
+                    continue
+                if rule.skip_in_tests and is_test_path(path):
                     continue
                 m = rule.pattern.search(text)
                 if not m:

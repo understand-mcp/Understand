@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import json
 import re
+from collections.abc import Mapping
 from dataclasses import dataclass, field
 from pathlib import PurePosixPath
 
@@ -185,7 +186,7 @@ _PARSERS = {
 }
 
 
-def analyze_dependencies(root, files: dict[str, str], *, max_bytes: int = 2_000_000) -> DependencyAnalysis:
+def analyze_dependencies(root, files: Mapping[str, object], *, max_bytes: int = 2_000_000) -> DependencyAnalysis:
     """Parse recognised manifests found in the inventory."""
     result = DependencyAnalysis()
     for relpath in sorted(files):

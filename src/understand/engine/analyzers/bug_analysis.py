@@ -8,6 +8,7 @@ merely because it does not match an expected template.
 from __future__ import annotations
 
 import re
+from collections.abc import Callable
 from dataclasses import dataclass
 
 from understand.engine.analyzers.base import AnalysisContext
@@ -38,6 +39,82 @@ class BugRule:
     remediation: str
     references: tuple[str, ...] = ()
     assumptions: tuple[str, ...] = ()
+    refine: Callable[[str, int, object], bool] | None = None
+
+
+def _handler_body(module: object, lineno: int) -> list[str]:
+    """Return the source lines of the block that belongs to an ``except`` header.
+
+    The header line itself is not part of the body. A body that is empty, or
+    that holds nothing but ``pass`` and comments, is the case the rules below
+    are about.
+    """
+    lines = getattr(module, "lines", [])
+    header = lines[lineno - 1] if 0 < lineno <= len(lines) else ""
+    indent = len(header) - len(header.lstrip())
+    body: list[str] = []
+    for raw_line in lines[lineno:]:
+        if not raw_line.strip():
+            body.append(raw_line)
+            continue
+        if len(raw_line) - len(raw_line.lstrip()) <= indent:
+            break
+        body.append(raw_line)
+    return body
+
+
+def _keep_empty_handler(raw: str, lineno: int, module: object) -> bool:
+    """Keep only handlers whose body really does nothing."""
+    body = [line.strip() for line in _handler_body(module, lineno) if line.strip()]
+    if not body:
+        return True
+    return all(line == "pass" or line.startswith("#") for line in body)
+
+
+def _keep_unused_binding(raw: str, lineno: int, module: object) -> bool:
+    """Keep only handlers whose bound name is never referenced."""
+    match = re.search(r"^\s*except\s+[A-Za-z_.]+\s+as\s+(\w+)\s*:", raw)
+    if match is None:
+        return True
+    name = match.group(1)
+    body = "\n".join(_handler_body(module, lineno))
+    return not re.search(rf"\b{re.escape(name)}\b", body)
+
+
+def _keep_mutated_global(raw: str, lineno: int, module: object) -> bool:
+    """Keep only module level containers that are mutated somewhere else."""
+    match = re.match(r"^\s*(?:const\s+)?([A-Za-z_]\w*)\s*=\s*", raw)
+    if match is None:
+        return True
+    name = match.group(1)
+    lines = getattr(module, "lines", [])
+    mutator = re.compile(
+        rf"\b{re.escape(name)}\s*(?:\.(?:append|update|extend|add|insert|pop|clear"
+        rf"|setdefault|remove|discard|sort|reverse)\(|\+=|-=|=(?!=))"
+    )
+    for index, line in enumerate(lines):
+        if index + 1 == lineno:
+            continue
+        if mutator.search(line):
+            return True
+    return False
+
+
+def _has_decorator(ctx: AnalysisContext, sym) -> bool:
+    """True when the definition carries a decorator.
+
+    A decorated member is normally called by a framework rather than by name:
+    a pydantic validator, a property, an abstract override. Calling it dead
+    would be wrong, so such names are left alone.
+    """
+    module = ctx.index.modules.get(sym.file)
+    if module is None:
+        return False
+    lines = getattr(module, "lines", [])
+    for lineno in range(max(1, sym.start_line - 5), sym.start_line):
+        if lineno <= len(lines) and lines[lineno - 1].strip().startswith("@"):
+            return True
+    return False
 
 
 BUG_RULES: tuple[BugRule, ...] = (
@@ -85,6 +162,7 @@ BUG_RULES: tuple[BugRule, ...] = (
         explanation="The handler body is empty (or only a comment), discarding the error context.",
         impact="Silent failure; operators lose the signal needed to diagnose incidents.",
         remediation="Log the exception or re-raise it.",
+        refine=_keep_empty_handler,
     ),
     BugRule(
         rule_id="BUG-PY-EXC-VAR-001",
@@ -100,6 +178,7 @@ BUG_RULES: tuple[BugRule, ...] = (
         ),
         impact="Diagnostics are lost; bugs become harder to triage.",
         remediation="Log the variable, or drop the `as` clause.",
+        refine=_keep_unused_binding,
     ),
     BugRule(
         rule_id="BUG-SHELL-UNQUOTED-001",
@@ -231,6 +310,7 @@ BUG_RULES: tuple[BugRule, ...] = (
         explanation="Module-level mutable containers are shared process-wide.",
         impact="Cross-request or cross-test interference when mutated in place.",
         remediation="Keep mutable state per-instance or per-request.",
+        refine=_keep_mutated_global,
     ),
 )
 
@@ -252,6 +332,8 @@ class BugAnalyzer:
                     if rule.languages and module.language not in rule.languages:
                         continue
                     if not rule.pattern.search(text):
+                        continue
+                    if rule.refine is not None and not rule.refine(raw, lineno, module):
                         continue
                     symbol = _scope(ctx, path, lineno)
                     findings.append(_finding(rule, path, lineno, raw.strip(), symbol))
@@ -314,7 +396,8 @@ class BugAnalyzer:
     def _dead_code_findings(self, ctx: AnalysisContext) -> list[Finding]:
         out: list[Finding] = []
         for sym in sorted(ctx.index.by_id.values(), key=lambda s: (s.file, s.start_line)):
-            if sym.kind not in {"function", "method", "class"} or not sym.exported:
+            if (sym.kind not in {"function", "method", "class"} or sym.exported
+                    or sym.name.startswith("__") or _has_decorator(ctx, sym)):
                 continue
             if ctx.index.modules[sym.file].is_usable is False:
                 continue
@@ -347,7 +430,7 @@ class BugAnalyzer:
                 severity=Severity.INFO,
                 confidence=Confidence.LOW,
                 verification_status=VerificationStatus.INCONCLUSIVE,
-                summary=f"{sym.id} has no resolved caller and is not exported by a manifest.",
+                summary=f"{sym.id} is a private name with no resolved caller.",
                 technical_explanation=(
                     "The call graph contains no edge into this symbol and no import references "
                     "its name. It may still be reachable through reflection, a framework "

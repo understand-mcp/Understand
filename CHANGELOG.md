@@ -4,6 +4,43 @@ All notable changes to UNDERSTAND are recorded here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and this project uses
 [semantic versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.1.5] - quieter findings, typed and documented
+
+The audit kept going after 0.1.4 and found that the tool was noisier about
+itself than it needed to be, that one flag was doing the opposite of what
+its name says, and that half the options were undocumented.
+
+### Fixed
+
+- The severity filter behind `--fail-on` compared the ranks the wrong way
+  round, so `--fail-on high` never failed on a critical or a high finding.
+  It now fails on what it says it fails on.
+- `assert` in a test file is the assertion mechanism, not a validation
+  guard. It is no longer reported as a security finding.
+- An `except` block that does something is no longer reported as an empty
+  handler, and an exception bound to a name that is used is no longer
+  reported as an unused binding.
+- A module-level lookup table that is never mutated is no longer reported
+  as a mutable global, and a private helper with no caller is now reported
+  as dead code (public names were being reported before, which is backwards:
+  a public name is the one you cannot judge).
+- The resource heuristic matched our own method names, so `self.open()` and
+  `acquire()` read as resource acquisitions. It now matches the call, not
+  the name.
+- Prose was analysed as code: a README that mentioned a retry was reported
+  as a retry without a timeout, and a `setTimeout` inside a template string
+  was reported as a blocking sleep.
+- The scan `--help` lists every option the CLI accepts, and `docs/cli.md`
+  now carries a complete generated reference for all of them, so the docs
+  cannot drift from the code.
+
+### Changed
+
+- `mypy` reports no errors across the source, and CI runs it as a third
+  check next to the tests and the linter.
+- The README opens with a picture of what the tool does: your repository,
+  the engine, and the finding you get back.
+
 ## [0.1.4] - the audited release
 
 ### Added
@@ -171,6 +208,7 @@ the report a scan produces.
   120,000 edges, and the node/edge budgets remove what does not fit. Every
   removal is counted and reported.
 
+[0.1.5]: https://github.com/understand-mcp/Understand/releases/tag/v0.1.5
 [0.1.4]: https://github.com/understand-mcp/Understand/releases/tag/v0.1.4
 [0.1.3]: https://github.com/understand-mcp/Understand/releases/tag/v0.1.3
 [0.1.2]: https://github.com/understand-mcp/Understand/releases/tag/v0.1.2

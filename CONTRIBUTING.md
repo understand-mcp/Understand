@@ -47,11 +47,13 @@ paths are tested.
 ```bash
 python -m pytest -q
 python -m ruff check src tests tools --exclude tests/fixtures
+python -m mypy src
 ```
 
-Both must pass. The same two commands run in CI on Linux, macOS and Windows
-across Python 3.11, 3.12 and 3.13, so a change that only works on your machine
-will be caught.
+All three must pass. The tests and the linter run in CI on Linux and Windows across
+Python 3.11, 3.12 and 3.13, and the type check runs once on Linux, so a change
+that only works on your machine will be caught. macOS runs in its own workflow,
+because a lack of macOS runners must not be able to block a merge.
 
 If your change touches the map renderer or the report HTML, also check the output
 visually:

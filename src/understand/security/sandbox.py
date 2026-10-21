@@ -52,6 +52,8 @@ class ExecutionPolicy:
         if name in self.allowed_executables:
             return True
         resolved = shutil.which(executable)
+        if not resolved:
+            return False
         return bool(resolved) and Path(resolved).name.lower() in {
             e.lower() for e in self.allowed_executables
         }

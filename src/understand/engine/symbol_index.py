@@ -14,6 +14,7 @@ import re
 from collections import defaultdict
 from dataclasses import dataclass, field
 from pathlib import PurePosixPath
+from typing import Any
 
 from understand.engine import language_detection as lang
 from understand.engine.parsing import (
@@ -113,9 +114,16 @@ def _py_signature(node: ast.AST) -> str:
     return ""
 
 
+def _docstring(node: ast.AST) -> str:
+    """The first line of a docstring, for the nodes that can carry one."""
+    if not isinstance(node, (ast.Module, ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef)):
+        return ""
+    return ast.get_docstring(node) or ""
+
+
 def _py_doc(node: ast.AST) -> str:
     try:
-        return (ast.get_docstring(node) or "").strip().split("\n")[0][:300]
+        return _docstring(node).strip().split("\n")[0][:300]
     except Exception:
         return ""
 
@@ -488,7 +496,7 @@ _TS_BASE_NAMES = frozenset({
 })
 
 
-def _ts_text(node: object) -> str:
+def _ts_text(node: Any) -> str:
     if node is None:
         return ""
     text = getattr(node, "text", b"")
@@ -497,7 +505,7 @@ def _ts_text(node: object) -> str:
     return str(text)
 
 
-def _ts_collect_bases(node: object, found: list[str]) -> None:
+def _ts_collect_bases(node: Any, found: list[str]) -> None:
     for child in node.named_children:
         if child.type in _TS_BASE_NAMES:
             name = _ts_text(child).split("<", 1)[0].strip()
@@ -507,7 +515,7 @@ def _ts_collect_bases(node: object, found: list[str]) -> None:
             _ts_collect_bases(child, found)
 
 
-def _ts_bases(node: object) -> tuple[str, ...]:
+def _ts_bases(node: Any) -> tuple[str, ...]:
     found: list[str] = []
     for child in node.named_children:
         # The declared name is itself a direct ``type_identifier``, so only the
@@ -538,7 +546,7 @@ class _TsWalker:
         self._seen: dict[str, Symbol] = {}
         self._qual: dict[str, str] = {}
 
-    def run(self, root: object) -> None:
+    def run(self, root: Any) -> None:
         self._visit(root, None, "", None, ())
 
     def scope_for(self, lineno: int) -> str:
@@ -553,7 +561,7 @@ class _TsWalker:
 
     def _visit(
         self,
-        node: object,
+        node: Any,
         parent: str | None,
         prefix: str,
         exported: bool | None,
@@ -571,7 +579,7 @@ class _TsWalker:
 
     def _visit_children(
         self,
-        node: object,
+        node: Any,
         parent: str | None,
         prefix: str,
         exported: bool | None,
@@ -582,7 +590,7 @@ class _TsWalker:
 
     def _emit(
         self,
-        node: object,
+        node: Any,
         name: str,
         kind: str,
         parent: str | None,
@@ -626,7 +634,7 @@ class _TsWalker:
         self.scopes.append((start, end, sid, qualified))
         return symbol
 
-    def _decl_decorators(self, node: object, inherited: tuple[str, ...]) -> tuple[str, ...]:
+    def _decl_decorators(self, node: Any, inherited: tuple[str, ...]) -> tuple[str, ...]:
         found = list(inherited)
         for child in node.named_children:
             if child.type == "decorator":
@@ -635,7 +643,7 @@ class _TsWalker:
                     found.append(text)
         return tuple(found)
 
-    def _recurse_body(self, node: object, symbol: Symbol) -> None:
+    def _recurse_body(self, node: Any, symbol: Symbol) -> None:
         prefix = self._qual.get(symbol.id, symbol.name) + "."
         body = node.child_by_field_name("body")
         if body is None:
@@ -645,7 +653,7 @@ class _TsWalker:
 
     def _on_export_statement(
         self,
-        node: object,
+        node: Any,
         parent: str | None,
         prefix: str,
         _exported: bool | None,
@@ -656,7 +664,7 @@ class _TsWalker:
 
     def _declare_type(
         self,
-        node: object,
+        node: Any,
         parent: str | None,
         prefix: str,
         exported: bool | None,
@@ -680,7 +688,7 @@ class _TsWalker:
 
     def _declare_function(
         self,
-        node: object,
+        node: Any,
         parent: str | None,
         prefix: str,
         exported: bool | None,
@@ -699,7 +707,7 @@ class _TsWalker:
 
     def _on_method_definition(
         self,
-        node: object,
+        node: Any,
         parent: str | None,
         prefix: str,
         exported: bool | None,
@@ -714,7 +722,7 @@ class _TsWalker:
 
     def _on_method_signature(
         self,
-        node: object,
+        node: Any,
         parent: str | None,
         prefix: str,
         exported: bool | None,
@@ -725,7 +733,7 @@ class _TsWalker:
 
     def _on_public_field_definition(
         self,
-        node: object,
+        node: Any,
         parent: str | None,
         prefix: str,
         exported: bool | None,
@@ -740,7 +748,7 @@ class _TsWalker:
 
     def _declarators(
         self,
-        node: object,
+        node: Any,
         parent: str | None,
         prefix: str,
         exported: bool | None,
@@ -857,7 +865,7 @@ def _parse_structured_data(path: str, text: str, language: str) -> ParsedModule:
         return module
     keys: list[tuple[str, int]] = []
 
-    def walk(obj: object, prefix: str) -> None:
+    def walk(obj: Any, prefix: str) -> None:
         if isinstance(obj, dict):
             for k, v in obj.items():
                 keys.append((f"{prefix}.{k}" if prefix else str(k), 1))

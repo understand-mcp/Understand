@@ -568,7 +568,8 @@ def build_server(
 
         return json.dumps(map_schema_document(), indent=2, sort_keys=True)
 
-    server.understand_toolbox = box  # type: ignore[attr-defined]  (lifecycle handle)
+    # The server keeps the toolbox alive for the lifetime of the process.
+    server.understand_toolbox = box  # type: ignore[attr-defined]
     return server
 
 

@@ -7,7 +7,7 @@ include CODE_OF_CONDUCT.md
 include Dockerfile
 include .dockerignore
 include src/understand/py.typed
-recursive-include docs *.md
+recursive-include docs *.md *.png
 recursive-include tools *.py
 recursive-include deploy *
 recursive-include .github *.yml *.md

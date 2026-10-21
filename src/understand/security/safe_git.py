@@ -70,7 +70,7 @@ class GitRemote:
         return self.url
 
 
-def _is_prohibited_ip(ip: ipaddress._BaseAddress) -> bool:
+def _is_prohibited_ip(ip: ipaddress.IPv4Address | ipaddress.IPv6Address) -> bool:
     if isinstance(ip, ipaddress.IPv6Address):
         mapped = ip.ipv4_mapped
         if mapped is not None:
@@ -118,7 +118,7 @@ def _resolve_and_check(host: str, policy: SecurityPolicy) -> list[str]:
         infos = socket.getaddrinfo(host, None, proto=socket.IPPROTO_TCP)
     except socket.gaierror as exc:
         raise NetworkPolicyError(f"cannot resolve host {host}: {exc}") from exc
-    addrs = sorted({i[4][0] for i in infos})
+    addrs = sorted({str(i[4][0]) for i in infos})
     if not addrs:
         raise NetworkPolicyError(f"host {host} resolved to no addresses")
     if policy.block_private_networks:

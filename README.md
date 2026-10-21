@@ -8,6 +8,8 @@ A CLI and an MCP server over one engine: security, defects, architecture,
 dependencies and an interactive code map. Every finding carries the file, the
 line and the reason it fired.
 
+<img src="https://raw.githubusercontent.com/understand-mcp/Understand/main/docs/images/project-overview.png" alt="UNDERSTAND: your repository, the engine, and what you get" width="100%" />
+
 [![Python](https://img.shields.io/badge/python-3.11%2B-3776ab)](https://www.python.org/)
 [![MCP](https://img.shields.io/badge/MCP-2.0-blue)](https://modelcontextprotocol.io)
 [![License](https://img.shields.io/badge/license-MIT-8a5cf5)](LICENSE)
@@ -28,7 +30,7 @@ pip install understand-mcp
 understand scan . --deep --cross-module
 ```
 
-That is the whole setup. It reads the repository you are in, runs the eleven
+That is the whole setup. It reads the repository you are in, runs the sixteen
 analysis stages, prints each finding with its evidence, and keeps the scan so
 the other commands can work with it.
 

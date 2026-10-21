@@ -342,3 +342,112 @@ understand --storage /var/lib/understand.db report list
 - **It never guesses.** An unresolved call is reported as unresolved, not
   resolved to a likely name. A missing dependency advisory is reported as
   `not_performed`, not as "no vulnerabilities".
+
+## 8. Every option, command by command
+
+This table is generated from the tool's own option tables and `--help` output, so it
+cannot drift from the code. Every option the CLI accepts is listed, under the command
+that accepts it.
+
+### `understand scan`
+
+| Option | What it does |
+| --- | --- |
+| `-d, --deep` | use the deep profile (data flow + deeper rules) |
+| `-x, --cross-module` | follow calls and data flow across module boundaries |
+| `--profile NAME` | 'standard' (default) or 'deep' |
+| `--format FORMAT` | text (default), json, or sarif |
+| `-o, --output PATH` | write the report to PATH instead of stdout |
+| `--out PATH` | an alias for --output |
+| `--no-report` | compute the scan but do not render a report |
+| `--fail-on SEVERITY` | exit 2 when a finding at or above SEVERITY exists (info, low, medium, high, critical) |
+| `--no-evidence` | omit evidence blocks from the rendered report |
+| `--evidence` | keep evidence blocks in the rendered report (default) |
+| `--no-execution-paths` | omit execution-path traces from the report |
+| `--execution-paths` | keep execution-path traces in the report (default) |
+| `--json` | print the report as JSON (same as --format json) |
+| `--no-thanks` | suppress the one-time thank-you note |
+| `-c, --config PATH` | configuration file (JSON). Also UNDERSTAND_CONFIG. |
+| `--storage PATH` | override the scan store path |
+| `--mode MODE` | 'local' (default) or 'hosted' |
+| `--local-root PATH` | additional allowed root for local sources (repeatable) |
+| `--allow-remote` | permit remote git URLs for this invocation |
+| `--no-allow-remote` | refuse remote git URLs even when policy allows them |
+| `--offline` | never consult the cache or the network |
+| `--online` | allow the cache and the network (default) |
+| `--no-cache` | do not read or write the incremental cache |
+| `--cache` | read and write the incremental cache (default) |
+| `--max-files N` | maximum files to read |
+| `--max-file-bytes N` | skip individual files larger than N bytes |
+| `--max-total-bytes N` | stop after N bytes of source |
+| `--max-seconds N` | stop the analysis after N seconds |
+| `--max-workers N` | number of worker threads to use |
+| `--timeout N` | wall-clock wait limit for the scan |
+| `-q, --quiet` | suppress progress logging on stderr |
+| `-v, --verbose` | verbose progress logging on stderr |
+| `-h, --help` | show this help and exit without scanning |
+| `--security` | run only the security analyzers |
+| `--bugs` | run only the bug-pattern analyzers |
+| `--architecture` | run only the architecture analyzers |
+| `--dependencies` | parse the manifests and report the dependency inventory |
+| `--reliability` | run only the reliability analyzers |
+
+### `understand report show`
+
+| Option | What it does |
+| --- | --- |
+| `--format json` | emit the report as JSON instead of text |
+| `--share` | print a paste-ready summary of the report; with `--format markdown` or `--format json` the summary is written in that format |
+| `--output PATH` | write the output to a file instead of standard output |
+| `--limit N` | show at most N findings |
+| `--offset N` | skip the first N findings |
+| `--severity SEVERITY` | only show findings at this severity or above |
+| `--category CATEGORY` | only show findings in this category |
+| `--rule RULE_ID` | only show findings from this rule |
+| `--file PATH` | only show findings in this file |
+| `--query TEXT` | only show findings whose text matches this query |
+
+### `understand report list`
+
+| Option | What it does |
+| --- | --- |
+| `--limit N` | show at most N stored scans |
+| `--offset N` | skip the first N stored scans |
+| `--status STATUS` | only list scans with this status |
+| `--format json` | emit the list as JSON |
+
+### `understand finding show`
+
+| Option | What it does |
+| --- | --- |
+| `--scan-id SCAN_ID` | which scan to read; the 25 most recent scans are searched when this is omitted |
+| `--format json` | emit the finding as JSON |
+
+### `understand map show`
+
+| Option | What it does |
+| --- | --- |
+| `--output PATH` | write the single-file HTML map to this path |
+
+### `understand map explain`
+
+| Option | What it does |
+| --- | --- |
+| `--output PATH` | write the explanation to this path |
+
+### `understand config show`
+
+| Option | What it does |
+| --- | --- |
+| `--format json` | emit the effective configuration as JSON |
+| `--config PATH` | read the configuration from this file |
+| `--storage PATH` | use this SQLite file as the report store |
+
+### Global
+
+| Option | What it does |
+| --- | --- |
+| `--help, -h` | show the help for the command and exit without doing any work |
+| `--version, -V` | print the version and exit |
+
+_49 distinct options. Options that take a value are shown with the value they expect._

@@ -10,7 +10,7 @@ from __future__ import annotations
 import functools
 import threading
 from collections.abc import Callable
-from typing import Any, TypeVar
+from typing import Any, TypeVar, overload
 
 from understand import __version__
 from understand.application import (
@@ -33,7 +33,15 @@ __all__ = ["ToolBox", "build_toolbox"]
 _F = TypeVar("_F", bound=Callable[..., dict[str, Any]])
 
 
-def envelope(name: str, handler: _F | None = None) -> _F | Callable[[_F], _F]:
+@overload
+def envelope(name: str) -> Callable[[_F], _F]: ...
+
+
+@overload
+def envelope(name: str, handler: _F) -> _F: ...
+
+
+def envelope(name: str, handler: _F | None = None) -> Any:
     """Guarantee every tool result is a JSON document with an ``ok`` flag.
 
     A tool never raises through this boundary: failures become

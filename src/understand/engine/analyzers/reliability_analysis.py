@@ -5,6 +5,7 @@ from __future__ import annotations
 import re
 
 from understand.engine.analyzers.base import AnalysisContext
+from understand.engine.language_detection import SupportLevel
 from understand.models import (
     Check,
     Confidence,
@@ -16,11 +17,15 @@ from understand.models import (
 )
 from understand.security.redaction import redact_snippet
 
-RETRY_RE = re.compile(r"\b(?:retry|retries|backoff|attempts|maxRetries|for\s+attempt\s+in)\b", re.I)
+RETRY_RE = re.compile(
+    r"(?:\bfor\s+attempt\s+in\b|\bwhile\b[^\n]*\battempts?\b|\bmax_?[Rr]etries\b\s*[:=]"
+    r"|\battempts?\s*[+\-]?=|\bretry\s*\(|\bbackoff\b\s*[:=])"
+)
 TIMEOUT_RE = re.compile(r"\b(?:timeout|timed_out|connectTimeout|readTimeout|Timeout|context\.WithTimeout)\b")
 UNBOUNDED_GROWTH_RE = re.compile(r"^\s*(?:self|this)\.[\w.]+\s*\.\s*append\s*\(|^\s*\w+\.push\s*\(|^\s*list\.append\s*\(")
 CLEANUP_RE = re.compile(r"\b(?:cleanup|teardown|dispose|release|close|shutdown|__del__|finalize|onClose)\b", re.I)
-SLEEP_RE = re.compile(r"\b(?:time\.sleep|sleep\s*\(|Thread\.sleep|setTimeout)\s*\(")
+# ``setTimeout`` is not a blocking sleep: it schedules a callback and returns.
+SLEEP_RE = re.compile(r"\b(?:time\.sleep|sleep\s*\(|Thread\.sleep)\s*\(")
 UNHANDLED_PROMISE_RE = re.compile(r"^\s*(?:this\.)?\w+(?:\.\w+)*\s*\([^)]*\)\s*;\s*$")
 
 
@@ -32,6 +37,8 @@ class ReliabilityAnalyzer:
     def run(self, ctx: AnalysisContext) -> list[Finding]:
         findings: list[Finding] = []
         for path, module in sorted(ctx.index.modules.items()):
+            if module.support is SupportLevel.TEXT_ONLY:
+                continue
             for lineno in range(1, len(module.lines) + 1):
                 raw = module.line(lineno)
                 text = module.dirty_lines.get(lineno, raw)

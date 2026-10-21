@@ -472,8 +472,8 @@ def _attach_findings(model: dict[str, Any], report: Any) -> None:
     by_id = {str(node.get("id")): node for node in nodes}
     findings = list(getattr(report, "findings", ()) or ())
 
-    attributed: dict[str, list[list[str]]] = {}
-    files_touched: dict[str, list[list[str]]] = {}
+    attributed: dict[str, list[dict[str, Any]]] = {}
+    files_touched: dict[str, list[dict[str, Any]]] = {}
     for finding in findings:
         target_ids = [str(s) for s in (getattr(finding, "affected_symbols", ()) or ()) if str(s) in by_id]
         # One detail per finding, shared by both indexes. Building it twice
@@ -493,7 +493,7 @@ def _attach_findings(model: dict[str, Any], report: Any) -> None:
             attributed.setdefault(node_id, []).append(detail)
 
     # Only the files that actually back a node can widen anything.
-    by_file: dict[str, list[str]] = {}
+    by_file: dict[str, list[dict[str, Any]]] = {}
     for node in nodes:
         path = str(node.get("file") or "")
         if path and path not in by_file:

@@ -21,6 +21,24 @@ FORBIDDEN_NAMES = frozenset({
 })
 
 
+def is_test_path(relpath: str) -> bool:
+    """True when a repository-relative path belongs to a test suite.
+
+    Test code asserts by design, and a test fixture is data rather than
+    production code, so rules that complain about ``assert`` or about an
+    unused handler must not fire there. The same answer is used by the
+    repository policy and by the analyzers, so it lives in one place.
+    """
+    low = "/" + relpath.lower()
+    base = relpath.rsplit("/", 1)[-1].lower()
+    if any(seg in low for seg in ("/test/", "/tests/", "/spec/", "/specs/", "/testing/",
+                                  "/__tests__/", "/e2e/", "/fixtures/", "/testdata/")):
+        return True
+    return base.startswith(("test_", "spec_")) or base.endswith(("_test.go", "_test.py", "_test.rb",
+                                                                "_spec.rb", ".test.ts", ".test.tsx",
+                                                                ".spec.ts", ".spec.tsx", ".test.js"))
+
+
 @dataclass(frozen=True)
 class ExclusionDecision:
     excluded: bool
@@ -59,14 +77,7 @@ class RepositoryPolicy:
         return base.endswith((".g.dart", ".pb.go", "_pb2.py", ".pb.cc", ".pb.h", ".designer.cs"))
 
     def is_test_path(self, relpath: str) -> bool:
-        low = "/" + relpath.lower()
-        base = relpath.rsplit("/", 1)[-1].lower()
-        if any(seg in low for seg in ("/test/", "/tests/", "/spec/", "/specs/", "/testing/",
-                                      "/__tests__/", "/e2e/", "/fixtures/", "/testdata/")):
-            return True
-        return base.startswith(("test_", "spec_")) or base.endswith(("_test.go", "_test.py", "_test.rb",
-                                                                    "_spec.rb", ".test.ts", ".test.tsx",
-                                                                    ".spec.ts", ".spec.tsx", ".test.js"))
+        return is_test_path(relpath)
 
     # ------------------------------------------------------------- decisions
     def decide(self, relpath: str) -> ExclusionDecision:
@@ -78,7 +89,11 @@ class RepositoryPolicy:
 
         parts = rel.split("/")
         for part in parts[:-1]:
-            if part in self.analysis.exclude_dirs or part.startswith("."):
+            if (
+                part in self.analysis.exclude_dirs
+                or part.startswith(".")
+                or part.endswith(".egg-info")
+            ):
                 return ExclusionDecision(True, "excluded directory", part)
         name = parts[-1]
         if is_hostile_filename(name):

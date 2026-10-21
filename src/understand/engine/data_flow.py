@@ -231,10 +231,10 @@ def line_facts(line: str) -> LineFacts:
     for name, pat in VAL_RULES:
         if pat.search(line):
             facts.validators.append(name)
-    m = _ASSIGN_RE.match(line)
-    if m:
-        facts.lhs = m.group("lhs")
-        facts.rhs = m.group("rhs")
+    assign = _ASSIGN_RE.match(line)
+    if assign:
+        facts.lhs = assign.group("lhs")
+        facts.rhs = assign.group("rhs")
     return facts
 
 
@@ -337,12 +337,12 @@ class DataFlowAnalyzer:
                     self._trusted_sanitizers.add(name)
 
     def _signature_params(self, sid: str, sym) -> list[str]:
-        module = self.index.modules.get(sym.file)
-        if module is None:
+        target_module = self.index.modules.get(sym.file)
+        if target_module is None:
             return []
         for i in range(sym.start_line, max(sym.start_line - 2, 0), -1):
             for pattern in _FUNC_SIG_RES:
-                m = pattern.search(module.dirty_lines.get(i, module.line(i)) or module.line(i))
+                m = pattern.search(target_module.dirty_lines.get(i, target_module.line(i)) or target_module.line(i))
                 if m and m.group("name").lstrip("*") in {sym.name, sym.name.split(".")[-1]}:
                     raw = m.group("args") or ""
                     out = []
@@ -475,9 +475,9 @@ class DataFlowAnalyzer:
             if not tainted:
                 continue
             sym = self.index.by_id[sid]
-            module = self.index.modules.get(sym.file)
-            if module is None:
+            if sym.file not in self.index.modules:
                 continue
+            module = self.index.modules[sym.file]
             if self.index.modules[sym.file].support is SupportLevel.TEXT_ONLY:
                 continue
             raw_lines = self._raw_lines(sym.file)

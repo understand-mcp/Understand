@@ -439,22 +439,31 @@ OPTIONS
       --profile NAME         'standard' (default) or 'deep'
       --format FORMAT        text (default), json, or sarif
   -o, --output PATH          write the report to PATH instead of stdout
+      --out PATH             an alias for --output
       --no-report            compute the scan but do not render a report
       --fail-on SEVERITY     exit 2 when a finding at or above SEVERITY exists
                              (info, low, medium, high, critical)
       --no-evidence          omit evidence blocks from the rendered report
+      --evidence             keep evidence blocks in the rendered report (default)
       --no-execution-paths   omit execution-path traces from the report
+      --execution-paths      keep execution-path traces in the report (default)
+      --json                 print the report as JSON (same as --format json)
+      --no-thanks            suppress the one-time thank-you note
   -c, --config PATH          configuration file (JSON). Also UNDERSTAND_CONFIG.
       --storage PATH         override the scan store path
       --mode MODE            'local' (default) or 'hosted'
       --local-root PATH      additional allowed root for local sources (repeatable)
       --allow-remote         permit remote git URLs for this invocation
+      --no-allow-remote      refuse remote git URLs even when policy allows them
       --offline              never consult the cache or the network
+      --online               allow the cache and the network (default)
       --no-cache             do not read or write the incremental cache
+      --cache                read and write the incremental cache (default)
       --max-files N          maximum files to read
       --max-file-bytes N     skip individual files larger than N bytes
       --max-total-bytes N    stop after N bytes of source
       --max-seconds N        stop the analysis after N seconds
+      --max-workers N        number of worker threads to use
       --timeout N            wall-clock wait limit for the scan
   -q, --quiet                suppress progress logging on stderr
   -v, --verbose              verbose progress logging on stderr
@@ -469,8 +478,8 @@ MAIN_HELP = f"""
 
 USAGE
   {PROGRAM} scan SOURCE [FEATURE ...] [OPTIONS]
-  {PROGRAM} report show SCAN_ID [--format json] [--limit N] [--offset N]
-  {PROGRAM} report list [--limit N] [--offset N] [--status STATUS]
+  {PROGRAM} report show SCAN_ID [--format json] [--share] [--output PATH] [--limit N] [--offset N]
+  {PROGRAM} report list [--limit N] [--offset N] [--status STATUS] [--format json]
   {PROGRAM} finding show FINDING_ID [--scan-id SCAN_ID] [--format json]
   {PROGRAM} map show SCAN_ID [--view module] [--root PATH] [--depth N]
   {PROGRAM} map views
@@ -611,7 +620,7 @@ def _severity_at_or_above(report, threshold: str) -> list[str]:
     return [
         finding.finding_id
         for finding in report.findings
-        if not finding.suppressed and finding.severity.rank <= limit
+        if not finding.suppressed and finding.severity.rank >= limit
     ]
 
 
@@ -1530,13 +1539,19 @@ def _emit_error(error: dict[str, Any]) -> None:
 # --------------------------------------------------------------------------- #
 # Entry point
 # --------------------------------------------------------------------------- #
+def _cmd_capabilities(argv: list[str]) -> int:
+    """Print the capability document as JSON."""
+    _emit_json(capabilities_document())
+    return 0
+
+
 _COMMANDS = {
     "scan": _cmd_scan,
     "report": _cmd_report,
     "finding": _cmd_finding,
     "map": _cmd_map,
     "config": _cmd_config,
-    "capabilities": lambda argv: (_emit_json(capabilities_document()) or 0),
+    "capabilities": _cmd_capabilities,
     "version": _cmd_version,
 }
 

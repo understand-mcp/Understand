@@ -33,9 +33,13 @@ TRANSACTION_RE = re.compile(r"\b(?:transaction|BEGIN|COMMIT|ROLLBACK|atomic\(\)|
 # ``open(someIdentifier`` did.  Resource-lifetime edges were therefore missing
 # every resource opened by a literal, which is most of them.
 RESOURCE_OPEN_RE = re.compile(
-    r"\b(?:io\.Open\b|os\.Open\b|createReadStream\b|fs\.open\b|getConnection\b|"
+    r"(?<![\w.])(?:io\.Open\b|os\.Open\b|createReadStream\b|fs\.open\b|getConnection\b|"
     r"requests\.Session\b|new\s+(?:FileInputStream|FileReader|Pool|Client)\b|"
     r"Popen\s*\(|open\s*\(|connect\s*\(|acquire\s*\()")
+# A definition line names a function; it does not open a resource. Without this
+# guard ``def open(self)`` and ``def acquire(self)`` were counted as resource
+# acquisitions, and every class with such a method looked like a leak.
+_DEFINITION_RE = re.compile(r"^\s*(?:async\s+def|def|class|function)\b")
 RESOURCE_CLOSE_RE = re.compile(
     r"\b(?:defer\s+\w*\.Close|with\s+open|using\s)"
     r"|\.?\b(?:close|end|release|shutdown|Dispose)\s*\(\)")
@@ -110,7 +114,7 @@ def extract_control_flow(index: SymbolIndex) -> dict[str, ControlFlowFacts]:
             if TRANSACTION_RE.search(text):
                 entry.transactions.append((lineno, text.strip()[:120]))
             m = RESOURCE_OPEN_RE.search(text)
-            if m:
+            if m and not _DEFINITION_RE.match(text):
                 entry.resources_opened.append((lineno, m.group(0)))
             m = RESOURCE_CLOSE_RE.search(text)
             if m:

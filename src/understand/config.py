@@ -10,6 +10,7 @@ import json
 import os
 from dataclasses import dataclass, field, replace
 from pathlib import Path
+from typing import Any
 
 from understand.errors import ConfigurationError
 
@@ -128,7 +129,7 @@ class RuntimeConfig:
         return replace(self, **kw)  # type: ignore[arg-type]
 
 
-def _load_file(path: str | None) -> dict[str, object]:
+def _load_file(path: str | None) -> dict[str, Any]:
     if not path:
         return {}
     p = Path(os.path.expanduser(path))
