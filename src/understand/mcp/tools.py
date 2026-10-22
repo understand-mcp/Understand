@@ -141,7 +141,8 @@ class ToolBox:
         if job.error is not None:
             raise job.error if isinstance(job.error, Exception) else RuntimeError(str(job.error))
         report = job.report
-        assert report is not None
+        if report is None:
+            raise RuntimeError(f"scan {job.scan_id} finished without a report")
         page = self.findings.query_report(report, limit=200)
         payload_out = self.reports.payload(
             report,

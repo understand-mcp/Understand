@@ -55,7 +55,8 @@ def build() -> dict:
         )
         with ScanService(config) as service:
             job = service.run_sync(request, timeout=180)
-    assert job.succeeded, job.error
+    if not job.succeeded:
+        raise RuntimeError(f"the fixture scan failed: {job.error}")
     return sarif_dict(job.report)
 
 

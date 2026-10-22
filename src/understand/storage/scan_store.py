@@ -147,6 +147,9 @@ class ScanStore:
         self.timeout = timeout
         self._lock = threading.RLock()
         self._conn: sqlite3.Connection | None = None
+        #: Pragmas that the database refused.  They are optimisations, not
+        #: requirements, so the failure is recorded instead of raised.
+        self._pragma_failures: list[str] = []
 
     # ------------------------------------------------------------------ lifecycle
 
@@ -172,8 +175,11 @@ class ScanStore:
             conn.execute("PRAGMA journal_mode=WAL")
             conn.execute("PRAGMA synchronous=NORMAL")
             conn.execute("PRAGMA foreign_keys=ON")
-        except sqlite3.Error:  # pragma: no cover - in-memory builds may refuse WAL
-            pass
+        except sqlite3.Error as exc:  # pragma: no cover - in-memory builds may refuse WAL
+            # A PRAGMA is an optimisation, not a requirement: an in-memory or
+            # read-only build may refuse it.  The store still works, so the
+            # failure is recorded rather than raised.
+            self._pragma_failures.append(f"PRAGMA failed: {exc}")
         self._conn = conn
         return conn
 
@@ -621,7 +627,8 @@ class _Transaction:
         return self._cur
 
     def __exit__(self, exc_type: object, exc: object, tb: object) -> None:
-        assert self._cur is not None
+        if self._cur is None:  # pragma: no cover - __enter__ always sets the cursor
+            raise StorageError("scan store transaction ended without a cursor")
         if exc_type is None:
             self._conn.commit()
         else:

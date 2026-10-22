@@ -44,8 +44,12 @@ try:  # optional extra: pip install "understand-mcp[ts]"
 
     _ts = _ts_module
     _ts_ts = _ts_typescript_module
-except Exception:  # pragma: no cover - depends on which extras are installed
-    pass
+except Exception as exc:  # pragma: no cover - depends on which extras are installed
+    # The grammars are an optional extra.  Without them the parser falls back
+    # to the lexical reader, so the absence is recorded and not raised.
+    _ts = None
+    _ts_ts = None
+    log.debug("tree-sitter grammars are not installed: %s", exc)
 
 #: True when both the runtime and the TypeScript grammars are importable.
 _TREE_SITTER_OK = _ts is not None and _ts_ts is not None

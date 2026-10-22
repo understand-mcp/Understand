@@ -363,3 +363,43 @@ def test_report_service_export(session_config, risky_scan_id, tmp_path: Path) ->
         target = reports.export(report, "sarif", str(tmp_path / "r.sarif"))
     assert target.exists()
     assert json.loads(target.read_text(encoding="utf-8"))["version"] == "2.1.0"
+
+def test_a_write_inside_a_transaction_is_not_reported(config) -> None:
+    """A write that is already atomic is not an untransacted write."""
+    repo = str(Path(__file__).resolve().parents[1] / "fixtures" / "repo_safe_calls")
+    with ScanService(config) as service:
+        job = service.run_sync(_request(repo))
+    assert job.succeeded, job.error
+    report = job.report
+    assert report is not None
+    write_files = {
+        evidence.file
+        for finding in report.findings
+        if finding.rule_id == "BUG-SQL-NOTX-001"
+        for evidence in finding.evidence
+    }
+    assert "app/untransacted_write.py" in write_files
+    assert "app/transacted_write.py" not in write_files
+
+def test_a_god_module_is_reported_but_a_test_file_is_not(tmp_path, config) -> None:
+    """A wide, long module is a god module; a test file is not."""
+    body = "\n".join(f"def helper_{index}() -> int:\n    return {index}\n" for index in range(60))
+    padding = "\n".join(f"# padding line {index}" for index in range(1200))
+    module = body + "\n" + padding
+    (tmp_path / "big_module.py").write_text(module, encoding="utf-8")
+    tests_dir = tmp_path / "tests"
+    tests_dir.mkdir()
+    (tests_dir / "big_test_file.py").write_text(module, encoding="utf-8")
+    with ScanService(config) as service:
+        job = service.run_sync(_request(str(tmp_path)))
+    assert job.succeeded, job.error
+    report = job.report
+    assert report is not None
+    god_modules = {
+        evidence.file
+        for finding in report.findings
+        if finding.rule_id == "ARCH-COUPLING-001"
+        for evidence in finding.evidence
+    }
+    assert "big_module.py" in god_modules
+    assert "tests/big_test_file.py" not in god_modules

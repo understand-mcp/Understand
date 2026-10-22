@@ -11,6 +11,12 @@ name: publish to PyPI
 #   repository: Understand
 #   workflow name: publish.yml
 #   environment: (leave empty, this workflow declares no environment)
+#
+# The job is idempotent.  A release can be published more than once - a
+# release that was deleted and recreated fires this workflow again - and PyPI
+# files are immutable, so a second upload of the same version is rejected.
+# The job therefore asks PyPI whether the version is already there and stops
+# with a green result instead of failing.
 
 on:
   release:
@@ -37,7 +43,22 @@ jobs:
         with:
           enable-cache: true
 
+      - name: Check whether this version is already on PyPI
+        id: check
+        run: |
+          set -euo pipefail
+          name=$(python3 -c "import tomllib,pathlib;print(tomllib.loads(pathlib.Path('pyproject.toml').read_text(encoding='utf-8'))['project']['name'])")
+          version=$(python3 -c "import tomllib,pathlib;print(tomllib.loads(pathlib.Path('pyproject.toml').read_text(encoding='utf-8'))['project']['version'])")
+          if curl -fsS "https://pypi.org/pypi/${name}/${version}/json" > /dev/null; then
+            echo "published=true" >> "$GITHUB_OUTPUT"
+            echo "${name} ${version} is already on PyPI. Nothing to publish."
+          else
+            echo "published=false" >> "$GITHUB_OUTPUT"
+            echo "${name} ${version} is not on PyPI yet. Publishing it."
+          fi
+
       - name: Build the distributions
+        if: steps.check.outputs.published != 'true'
         run: uv build --out-dir dist
 
       # `uv publish` does not create attestations. It only uploads the PEP 740
@@ -45,7 +66,9 @@ jobs:
       # dist/*.publish.attestation from the workflow's OIDC identity, and uv
       # then sends them to PyPI alongside the files.
       - name: Generate PEP 740 attestations
+        if: steps.check.outputs.published != 'true'
         uses: astral-sh/attest-action@f589a42a7efb6fe400b4f400de60b4bc90390027 # v0.0.6
 
       - name: Publish to PyPI
+        if: steps.check.outputs.published != 'true'
         run: uv publish --trusted-publishing always dist/*

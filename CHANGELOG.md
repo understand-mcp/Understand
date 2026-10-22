@@ -4,6 +4,33 @@ All notable changes to UNDERSTAND are recorded here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and this project uses
 [semantic versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.1.7] - the last findings, and a publish that cannot fail twice
+
+### Fixed
+- The publish workflow uploaded a version that PyPI already had, and PyPI
+  rejects that because a file never changes. The job now asks PyPI whether the
+  version is there and stops with a green result, so a release that is
+  published twice can never fail the workflow again.
+- Three `assert` statements in production code became explicit errors. An
+  assertion disappears under `python -O`, so it must not be the thing that
+  keeps the store and the MCP server honest.
+- Three empty `except` handlers now do something. The store records the
+  pragma it could not set, the optional tree-sitter grammars are cleared
+  explicitly, and the remote host check asks a question instead of catching
+  an exception to do nothing.
+- A write that already sits inside a transaction is no longer reported as an
+  untransacted write. The rule sees the transaction whether it was opened by
+  a context manager or by an explicit `BEGIN`, and it reads the SQL text from
+  the source line because the sanitiser hides string bodies.
+- A god module has to be wide and long before it is reported, and a test file
+  never is. The map model was split into three modules because it genuinely
+  was one: the vocabulary, the layout engine and the view builders.
+- Two layout helpers that nothing called were removed.
+
+### Changed
+- The self-scan of this repository now reports nothing at all: 0 findings, 0
+  critical, 0 high.
+
 ## [0.1.6] - the version stops lying
 
 ### Fixed
@@ -223,6 +250,7 @@ the report a scan produces.
   120,000 edges, and the node/edge budgets remove what does not fit. Every
   removal is counted and reported.
 
+[0.1.7]: https://github.com/understand-mcp/Understand/releases/tag/v0.1.7
 [0.1.6]: https://github.com/understand-mcp/Understand/releases/tag/v0.1.6
 [0.1.5]: https://github.com/understand-mcp/Understand/releases/tag/v0.1.5
 [0.1.4]: https://github.com/understand-mcp/Understand/releases/tag/v0.1.4

@@ -23,6 +23,7 @@ from understand.models import (
     VerificationStatus,
 )
 from understand.security.redaction import redact_snippet
+from understand.security.repository_policy import is_test_path
 
 
 @dataclass(frozen=True)
@@ -40,6 +41,8 @@ class BugRule:
     references: tuple[str, ...] = ()
     assumptions: tuple[str, ...] = ()
     refine: Callable[[str, int, object], bool] | None = None
+    raw_pattern: re.Pattern[str] | None = None
+    skip_in_tests: bool = False
 
 
 def _handler_body(module: object, lineno: int) -> list[str]:
@@ -115,6 +118,49 @@ def _has_decorator(ctx: AnalysisContext, sym) -> bool:
         if lineno <= len(lines) and lines[lineno - 1].strip().startswith("@"):
             return True
     return False
+
+
+#: A ``with`` that opens a transaction.  The write statements of a scan store
+#: are bracketed by one, so they are already atomic.
+_TRANSACTION_CONTEXT_RE = re.compile(
+    r"^\s*with\b.*(?:transaction|atomic|tx)\w*\s*\(|\bwith\b.*\.\s*begin\s*\(",
+    re.I,
+)
+
+#: A transaction opened by hand: ``conn.execute("BEGIN")``.  The keyword lives
+#: inside a string, so the source line is searched.
+_TRANSACTION_BEGIN_RE = re.compile(r"^\s*(?:\w+\.)*execute\s*\(\s*[\"']BEGIN\b", re.I)
+
+
+def _inside_transaction(module: object, lineno: int) -> bool:
+    """True when the statement is bracketed by a transaction context manager.
+
+    A write inside ``with self._transaction() as cur:`` is committed as one
+    unit, so reporting it as an untransacted write is wrong.  The transaction
+    can only be seen by looking upwards for the ``with`` that opens the block.
+    """
+
+    lines = getattr(module, "lines", None) or []
+    index = lineno - 1
+    if index < 0 or index >= len(lines):
+        return False
+    current_indent = len(lines[index]) - len(lines[index].lstrip())
+    for back in range(index - 1, max(-1, index - 60), -1):
+        line = lines[back]
+        if not line.strip():
+            continue
+        if not (_TRANSACTION_CONTEXT_RE.match(line) or _TRANSACTION_BEGIN_RE.match(line)):
+            continue
+        indent = len(line) - len(line.lstrip())
+        if indent <= current_indent:
+            return True
+    return False
+
+
+def _keep_untransactioned_write(raw: str, lineno: int, module: object) -> bool:
+    """False when the write already sits inside a transaction."""
+
+    return not _inside_transaction(module, lineno)
 
 
 BUG_RULES: tuple[BugRule, ...] = (
@@ -298,6 +344,16 @@ BUG_RULES: tuple[BugRule, ...] = (
         impact="Partially applied multi-step updates under concurrency.",
         remediation="Wrap related writes in a single transaction.",
         assumptions=("The caller opens a transaction outside this symbol.",),
+        refine=_keep_untransactioned_write,
+        # The SQL text lives inside a string literal, and the sanitiser blanks
+        # string bodies so that a keyword in a comment cannot raise a finding.
+        # The write keyword is therefore looked for in the source line, while
+        # the call itself is looked for in the sanitised one.
+        raw_pattern=re.compile(
+            r"\w+\s*\([^\n]*\b(?:INSERT\s+INTO|UPDATE\s+[\w.\"'`\[\]]+\s+SET|DELETE\s+FROM)\b",
+            re.I,
+        ),
+        skip_in_tests=True,
     ),
     BugRule(
         rule_id="BUG-MUTABLE-GLOBAL-001",
@@ -331,7 +387,11 @@ class BugAnalyzer:
                 for rule in BUG_RULES:
                     if rule.languages and module.language not in rule.languages:
                         continue
-                    if not rule.pattern.search(text):
+                    if rule.skip_in_tests and is_test_path(path):
+                        continue
+                    if not rule.pattern.search(text) and not (
+                        rule.raw_pattern is not None and rule.raw_pattern.search(raw)
+                    ):
                         continue
                     if rule.refine is not None and not rule.refine(raw, lineno, module):
                         continue

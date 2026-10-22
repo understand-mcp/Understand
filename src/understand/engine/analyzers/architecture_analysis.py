@@ -15,6 +15,7 @@ from understand.models import (
     Severity,
     VerificationStatus,
 )
+from understand.security.repository_policy import is_test_path
 
 MANIFEST_ENTRY_HINTS = (
     ("package.json", "node_main"),
@@ -83,12 +84,21 @@ class ArchitectureAnalyzer:
         out: list[Finding] = []
         stats = []
         for path, module in ctx.index.modules.items():
+            if is_test_path(path):
+                # A test file is large by design: it holds the cases and the
+                # fixtures, not the design of the product.
+                continue
             symbols = [s for s in module.symbols if s.kind in {"function", "method", "class"}]
-            if len(symbols) < 40:
+            lines = len(module.lines)
+            # A god module is both wide and long.  A file with many small
+            # helpers is a list; a file with few long ones is a problem.
+            if len(symbols) < 50 or lines < 1000:
                 continue
             longest = max((s.end_line - s.start_line for s in symbols), default=0)
-            stats.append((len(symbols), longest, path, module))
-        for count, longest, path, module in sorted(stats, reverse=True)[:10]:
+            stats.append((len(symbols), longest, lines, path, module))
+        for count, longest, lines, path, module in sorted(
+            stats, key=lambda item: (item[0], item[1], item[2]), reverse=True
+        )[:10]:
             out.append(Finding(
                 title=f"{path} concentrates {count} symbols",
                 category="high-coupling",
@@ -96,14 +106,17 @@ class ArchitectureAnalyzer:
                 severity=Severity.LOW,
                 confidence=Confidence.HIGH,
                 verification_status=VerificationStatus.STATIC_EVIDENCE,
-                summary=f"{path} declares {count} symbols; the longest spans {longest} lines.",
+                summary=(
+                    f"{path} declares {count} symbols across {lines} lines; "
+                    f"the longest spans {longest} lines."
+                ),
                 technical_explanation=(
                     "Large modules raise the blast radius of any change and are a common "
                     "source of hidden coupling. This is a structural signal, not a defect."
                 ),
                 evidence=[Evidence(kind=EvidenceKind.SOURCE_RANGE, file=path, start_line=1,
                                    end_line=(module.lines and len(module.lines)) or 1,
-                                   note=f"{count} symbols in one file")],
+                                   note=f"{count} symbols in {lines} lines")],
                 assumptions=["The file is a real source file rather than a generated or vendored file."],
                 impact="Higher maintenance and regression risk.",
                 remediation="Split by responsibility along the boundaries visible in the call graph.",

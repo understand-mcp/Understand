@@ -89,6 +89,16 @@ def _is_prohibited_ip(ip: ipaddress.IPv4Address | ipaddress.IPv6Address) -> bool
     )
 
 
+def _is_ip_literal(host: str) -> bool:
+    """True when ``host`` is an IPv4 or IPv6 literal rather than a name."""
+
+    try:
+        ipaddress.ip_address(host)
+    except ValueError:
+        return False
+    return True
+
+
 def _validate_hostname(host: str) -> str:
     """Normalize and syntactically validate a remote host. Returns the host."""
 
@@ -98,11 +108,8 @@ def _validate_hostname(host: str) -> str:
         raise NetworkPolicyError(f"destination {host!r} is a cloud metadata endpoint and is blocked")
     if host.endswith("."):
         host = host[:-1]
-    try:
-        ipaddress.ip_address(host)
+    if _is_ip_literal(host):
         return host
-    except ValueError:
-        pass
     labels = host.lower().split(".")
     if len(labels) < 2:
         raise NetworkPolicyError(f"remote host must be a fully qualified name: {host!r}")
